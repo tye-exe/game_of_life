@@ -54,12 +54,20 @@ mod tests {
     use super::*;
 
     #[test]
-    /// Sets a cell to be alive
-    fn set_cell_alive() {
+    /// A cell will be dead unless it has been set to alive.
+    fn dead_by_default() {
         let position = GlobalPosition::new(1, 1);
         let mut board = Board::default();
 
         assert!(board.is_dead(position));
+    }
+
+    #[test]
+    /// Sets a cell to be alive.
+    fn set_cell_alive() {
+        let position = GlobalPosition::new(1, 1);
+        let mut board = Board::default();
+
         board.set_alive(position);
         assert!(board.is_alive(position));
     }
