@@ -3,5 +3,5 @@
 version = 3
 
 [[package]]
-name = "nea"
+name = "game_of_life"
 version = "0.1.0"
