@@ -3,8 +3,6 @@
 pub fn ui_init() -> eframe::Result<()> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
 
-    // egui::ViewportBuilder::default().with_inner_size()
-
     let native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default(),
         ..Default::default()
@@ -16,6 +14,8 @@ pub fn ui_init() -> eframe::Result<()> {
         Box::new(|cc| Ok(Box::new(MyApp::new(cc)))),
     )
 }
+
+const BOARD_ID: &str = "board";
 
 struct MyApp<'a> {
     label: &'a str,
@@ -39,6 +39,12 @@ impl eframe::App for MyApp<'_> {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading(self.label);
+            let layer_id = egui::LayerId::new(egui::Order::Background, BOARD_ID.into());
+            let layer_painter = ctx.layer_painter(layer_id);
+            let rect = egui::Rect::from_min_max(egui::pos2(1.0, 1.0), egui::pos2(100.0, 100.0));
+            let colour = egui::Color32::from_rgb(0, 0, 0);
+            let rect_filled = egui::Shape::rect_filled(rect, egui::Rounding::ZERO, colour);
+            layer_painter.add(rect_filled);
         });
     }
 }
