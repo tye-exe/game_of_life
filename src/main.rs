@@ -2,5 +2,5 @@ mod logic;
 mod ui;
 
 fn main() {
-    println!("Hello, world!");
+    ui::ui_init().unwrap();
 }
