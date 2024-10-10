@@ -1,5 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
+use egui::Color32;
+
+/// Runs the ui.
 pub fn ui_init() -> eframe::Result<()> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
 
@@ -15,16 +18,25 @@ pub fn ui_init() -> eframe::Result<()> {
     )
 }
 
+/// The egui id for the board where the cells are being displayed.
 const BOARD_ID: &str = "board";
 
+/// The struct that contains the data for the gui of my app.
 struct MyApp<'a> {
     label: &'a str,
+
+    /// The colour of alive cells.
+    cell_alive_colour: Color32,
+    /// The colour of dead cells.
+    cell_dead_colour: Color32,
 }
 
 impl Default for MyApp<'_> {
     fn default() -> Self {
         Self {
             label: "Hello world!",
+            cell_alive_colour: Color32::WHITE,
+            cell_dead_colour: Color32::BLACK,
         }
     }
 }
@@ -42,8 +54,8 @@ impl eframe::App for MyApp<'_> {
             let layer_id = egui::LayerId::new(egui::Order::Background, BOARD_ID.into());
             let layer_painter = ctx.layer_painter(layer_id);
             let rect = egui::Rect::from_min_max(egui::pos2(1.0, 1.0), egui::pos2(100.0, 100.0));
-            let colour = egui::Color32::from_rgb(0, 0, 0);
-            let rect_filled = egui::Shape::rect_filled(rect, egui::Rounding::ZERO, colour);
+            let rect_filled =
+                egui::Shape::rect_filled(rect, egui::Rounding::ZERO, self.cell_dead_colour);
             layer_painter.add(rect_filled);
         });
 
