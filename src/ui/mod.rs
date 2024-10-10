@@ -46,5 +46,12 @@ impl eframe::App for MyApp<'_> {
             let rect_filled = egui::Shape::rect_filled(rect, egui::Rounding::ZERO, colour);
             layer_painter.add(rect_filled);
         });
+
+        egui::SidePanel::right("Right_Panel").show(ctx, |ui| {
+            let pointer_latest_pos = ctx.pointer_latest_pos();
+            if let Some(pos) = pointer_latest_pos {
+                ui.heading(pos.to_string());
+            }
+        });
     }
 }
