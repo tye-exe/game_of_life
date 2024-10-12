@@ -58,15 +58,40 @@ impl MyApp<'static> {
 
 impl eframe::App for MyApp<'_> {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        let mut size = ctx.input(|i| i.screen_rect()).size();
+
+        // Draws the right side panel & gets the size of it.
+        let panel_size = egui::SidePanel::right("Right_Panel")
+            .show(ctx, |ui| {
+                let pointer_latest_pos = ctx.pointer_latest_pos();
+                if let Some(pos) = pointer_latest_pos {
+                    ui.heading(pos.to_string());
+                    ui.heading(size.to_string());
+                }
+            })
+            .response
+            .rect
+            .size();
+
+        // Reduces the board area to exclude the side panel
+        size.x -= panel_size.x;
+
+        // Draws the board panel last, so that the available size to draw is known
         egui::CentralPanel::default().show(ctx, |ui| {
+            // Creates the painter once & reuses it
             let layer_painter = board_painter(ctx);
 
             use egui::{pos2, Rect, Rounding, Shape};
-            for x in 0..100 {
-                for y in 0..100 {
-                    let x = x as f32;
-                    let y = y as f32;
-                    let rect = Rect::from_two_pos(pos2(x, y), pos2(x + 1.0, y + 1.0));
+            let mut x = 0.0;
+            let mut y = 0.0;
+
+            while x < size.x {
+                y = 0.0;
+                while y < size.y {
+                    let rect = Rect::from_two_pos(
+                        pos2(x, y),
+                        pos2(x + self.cell_size, y + self.cell_size),
+                    );
                     let rect_filled = Shape::rect_filled(rect, Rounding::ZERO, {
                         if x % 2.0 == 0.0 {
                             self.cell_alive_colour
@@ -74,16 +99,10 @@ impl eframe::App for MyApp<'_> {
                             self.cell_dead_colour
                         }
                     });
-                    // egui::Rect::from_pos()
                     layer_painter.add(rect_filled);
+                    y += self.cell_size;
                 }
-            }
-        });
-
-        egui::SidePanel::right("Right_Panel").show(ctx, |ui| {
-            let pointer_latest_pos = ctx.pointer_latest_pos();
-            if let Some(pos) = pointer_latest_pos {
-                ui.heading(pos.to_string());
+                x += self.cell_size;
             }
         });
     }
