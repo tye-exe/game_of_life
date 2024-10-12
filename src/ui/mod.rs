@@ -45,7 +45,7 @@ impl Default for MyApp<'_> {
             label: "Hello world!",
             cell_alive_colour: Color32::WHITE,
             cell_dead_colour: Color32::BLACK,
-            cell_size: 1.0,
+            cell_size: 5.0,
         }
     }
 }
@@ -68,6 +68,16 @@ impl eframe::App for MyApp<'_> {
                     ui.heading(pos.to_string());
                     ui.heading(size.to_string());
                 }
+
+                ui.add(
+                    egui::Slider::new(&mut self.cell_size, 4.0..=50.0)
+                        // The slider limits should just be suggestions for the user.
+                        .clamping(egui::SliderClamping::Never)
+                        .text("Cell size"),
+                );
+                // However the cells can't be smaller than one pixel as it does not
+                // make sense & destroys performance.
+                self.cell_size = self.cell_size.max(1.0);
             })
             .response
             .rect
