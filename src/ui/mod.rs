@@ -2,6 +2,25 @@
 
 use egui::Color32;
 
+mod lang {
+    /// Creates a public constant string with the name as the name of the constant
+    /// and the text as the value of the string.
+    ///
+    /// # Examples
+    /// ```
+    /// lang!(QUOTE, "Ya like jazz?");
+    /// assert_eq!(QUOTE, "Ya like jazz?");
+    /// ```
+    macro_rules! lang {
+        ($name:tt, $text:literal) => {
+            pub const $name: &str = $text;
+        };
+    }
+
+    lang!(APP_NAME, "Game Of Life");
+    lang!(CELL_SIZE_SLIDER, "Cell Size");
+}
+
 /// Runs the ui.
 pub fn ui_init() -> eframe::Result<()> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
@@ -12,7 +31,7 @@ pub fn ui_init() -> eframe::Result<()> {
     };
 
     eframe::run_native(
-        "Game of life",
+        lang::APP_NAME,
         native_options,
         Box::new(|cc| Ok(Box::new(MyApp::new(cc)))),
     )
@@ -73,7 +92,7 @@ impl eframe::App for MyApp<'_> {
                     egui::Slider::new(&mut self.cell_size, 4.0..=50.0)
                         // The slider limits should just be suggestions for the user.
                         .clamping(egui::SliderClamping::Never)
-                        .text("Cell size"),
+                        .text(lang::CELL_SIZE_SLIDER),
                 );
                 // However the cells can't be smaller than one pixel as it does not
                 // make sense & destroys performance.
