@@ -1,8 +1,31 @@
-use std::collections::HashSet;
+mod simplistic;
 
-/// Represents a board that the cells inhabit.
-pub struct Board {
-    board: HashSet<GlobalPosition>,
+pub trait Simulator {
+    fn update(&mut self);
+
+    fn batch_update(&mut self, amount: u64) {
+        for _ in 0..amount {
+            self.update();
+        }
+    }
+
+    fn set(&mut self, position: GlobalPosition, cell: Cell);
+
+    fn get(&self, position: GlobalPosition) -> Cell;
+
+    fn export(&self, position_one: GlobalPosition, position_two: GlobalPosition) {
+        todo!()
+    }
+
+    fn export_file(&self) {
+        todo!()
+    }
+}
+
+#[derive(PartialEq, Debug, Clone, Copy)]
+pub enum Cell {
+    Alive,
+    Dead,
 }
 
 /// The x & y positions of a [`Cell`] on the board.
@@ -18,57 +41,18 @@ impl GlobalPosition {
     }
 }
 
-pub enum Cell {
-    Alive,
-    Dead,
-}
+impl std::ops::Sub<(i32, i32)> for GlobalPosition {
+    type Output = Self;
 
-impl Default for Board {
-    fn default() -> Self {
-        Board {
-            board: HashSet::new(),
-        }
+    fn sub(self, rhs: (i32, i32)) -> Self::Output {
+        GlobalPosition::new(self.x - rhs.0, self.y - rhs.1)
     }
 }
 
-impl Board {
-    pub fn set_alive(&mut self, position: GlobalPosition) {
-        self.board.insert(position);
-    }
+impl std::ops::Add<(i32, i32)> for GlobalPosition {
+    type Output = Self;
 
-    pub fn set_dead(&mut self, position: GlobalPosition) {
-        self.board.remove(&position);
-    }
-
-    pub fn is_alive(&self, position: GlobalPosition) -> bool {
-        self.board.contains(&position)
-    }
-
-    pub fn is_dead(&self, position: GlobalPosition) -> bool {
-        !self.board.contains(&position)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    /// A cell will be dead unless it has been set to alive.
-    fn dead_by_default() {
-        let position = GlobalPosition::new(1, 1);
-        let mut board = Board::default();
-
-        assert!(board.is_dead(position));
-    }
-
-    #[test]
-    /// Sets a cell to be alive.
-    fn set_cell_alive() {
-        let position = GlobalPosition::new(1, 1);
-        let mut board = Board::default();
-
-        board.set_alive(position);
-        assert!(board.is_alive(position));
+    fn add(self, rhs: (i32, i32)) -> Self::Output {
+        GlobalPosition::new(self.x + rhs.0, self.y + rhs.1)
     }
 }
