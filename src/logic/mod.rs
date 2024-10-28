@@ -36,7 +36,7 @@ pub enum Cell {
 }
 
 /// The x & y positions of a [`Cell`] on the board.
-#[derive(Eq, Hash, PartialEq, Clone, Copy)]
+#[derive(Eq, Hash, PartialEq, Clone, Copy, Debug)]
 pub struct GlobalPosition {
     x: i32,
     y: i32,
@@ -147,9 +147,13 @@ pub mod display {
             }
         }
 
-        pub fn update_coordinates(&self, to: GlobalPosition, from: GlobalPosition) {
-            self.to.set(to);
-            self.from.set(from);
+        pub fn set_coordinates(
+            &self,
+            to: impl Into<GlobalPosition>,
+            from: impl Into<GlobalPosition>,
+        ) {
+            self.to.set(to.into());
+            self.from.set(from.into());
         }
 
         pub fn get_coordinates(&self) -> Positions {
@@ -204,6 +208,7 @@ pub mod display {
     mod tests {
         use super::*;
 
+        // Ensures that the logger has started before any tests are run.
         #[cfg(test)]
         #[ctor::ctor]
         fn init() {
@@ -213,6 +218,94 @@ pub mod display {
         #[test]
         fn construction_test() {
             DisplayData::new((4, 4), (0, 0));
+        }
+
+        #[test]
+        fn get_coords() {
+            let display_data = DisplayData::new((4, 4), (0, 0));
+
+            let positions = display_data.get_coordinates();
+            assert_eq!(positions.to, (4, 4).into());
+            assert_eq!(positions.from, (0, 0).into());
+        }
+
+        #[test]
+        fn set_coords() {
+            let display_data = DisplayData::new((4, 4), (0, 0));
+
+            display_data.set_coordinates((5, 5), (1, 1));
+            let positions = display_data.get_coordinates();
+            assert_eq!(positions.to, (5, 5).into());
+            assert_eq!(positions.from, (1, 1).into());
+        }
+
+        #[test]
+        fn get_board() {
+            let display_data = DisplayData::new((4, 4), (0, 0));
+
+            // The entire board is dead
+            let board = display_data.get_board();
+            for array in board.iter() {
+                for cell in array.iter() {
+                    assert_eq!(*cell, crate::logic::Cell::Dead);
+                }
+            }
+        }
+
+        /// Generates DisplayData where one board is all dead & the other is all alive.
+        fn display_different_board() -> DisplayData {
+            use crate::logic::Cell;
+            let display_data = DisplayData::new((4, 4), (0, 0));
+
+            // Generates an arary of arrays of dead cells.
+            let board = std::iter::repeat_with(|| {
+                // Generates an array of dead cells.
+                std::iter::repeat(Cell::Alive)
+                    .clone()
+                    .take(4usize)
+                    .collect::<Box<[Cell]>>()
+            })
+            .take(4usize)
+            .collect::<BoardDisplay>();
+
+            display_data.set_board(board);
+            display_data
+        }
+
+        #[test]
+        fn set_board() {
+            use crate::logic::Cell;
+            let display_data = display_different_board();
+
+            // The current board will be alive as it has been set so
+            let set_board = display_data.get_board();
+            for array in set_board.iter() {
+                for cell in array.iter() {
+                    assert_eq!(*cell, Cell::Alive);
+                }
+            }
+        }
+
+        #[test]
+        fn boards_are_different() {
+            use crate::logic::Cell;
+            let display_data = display_different_board();
+
+            // Buf one (The board available to edit) will still be dead
+            let buf_one = display_data.board_buffer_one.borrow().clone();
+            for array in buf_one.iter() {
+                for cell in array.iter() {
+                    assert_eq!(*cell, Cell::Dead);
+                }
+            }
+
+            // Buf two (The board that has been edited) will be alive
+            let buf_two = display_data.board_buffer_two.borrow().clone();
+            for array in buf_two.iter() {
+                for cell in array.iter() {
+                    assert_eq!(*cell, Cell::Alive);
+                }
+            }
         }
     }
 }
