@@ -204,6 +204,12 @@ pub mod display {
     mod tests {
         use super::*;
 
+        #[cfg(test)]
+        #[ctor::ctor]
+        fn init() {
+            colog::init();
+        }
+
         #[test]
         fn construction_test() {
             DisplayData::new((4, 4), (0, 0));
