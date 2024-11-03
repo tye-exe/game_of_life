@@ -16,7 +16,7 @@ pub trait Simulator {
 
     fn get(&self, position: GlobalPosition) -> Cell;
 
-    fn export(&self, from: GlobalPosition, to: GlobalPosition) {
+    fn export(&self, area: Area) {
         todo!()
     }
 
@@ -81,7 +81,51 @@ impl From<(i32, i32)> for GlobalPosition {
 }
 
 /// A single wrapper struct around the two opposite corners of rectangle.
-pub struct Positions {
-    pub to: GlobalPosition,
-    pub from: GlobalPosition,
+pub struct Area {
+    from: GlobalPosition,
+    to: GlobalPosition,
+}
+
+impl Area {
+    /// Constructs a new [`Area`].
+    pub fn new(pos1: impl Into<GlobalPosition>, pos2: impl Into<GlobalPosition>) -> Self {
+        let pos1 = pos1.into();
+        let pos2 = pos2.into();
+
+        // Construct from with the smallest x & y
+        let from = GlobalPosition {
+            x: pos1.get_x().min(pos2.get_x()),
+            y: pos1.get_y().min(pos2.get_y()),
+        };
+        // Construct to with the biggest x & y
+        let to = GlobalPosition {
+            x: pos1.get_x().max(pos2.get_x()),
+            y: pos1.get_y().max(pos2.get_y()),
+        };
+
+        Self { from, to }
+    }
+
+    /// Gets the smallest x & smallest y of the area.
+    pub fn get_from(&self) -> GlobalPosition {
+        self.from
+    }
+
+    /// Gets the biggest x & biggest y of the area.
+    pub fn get_to(&self) -> GlobalPosition {
+        self.to
+    }
+}
+
+#[cfg(test)]
+mod area_tests {
+    use super::*;
+
+    #[test]
+    fn from_lower_to_higher() {
+        let area = Area::new((10, 5), (5, 10));
+
+        assert_eq!(area.get_from(), (5, 5).into());
+        assert_eq!(area.get_to(), (10, 10).into());
+    }
 }

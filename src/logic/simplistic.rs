@@ -4,7 +4,7 @@ use std::{
     sync::{mpsc, Arc},
 };
 
-use super::{BoardDisplay, Cell, GlobalPosition, Positions, Simulator};
+use super::{Area, BoardDisplay, Cell, GlobalPosition, Simulator};
 
 /// Represents a board that the cells inhabit.
 pub struct Board {
@@ -12,8 +12,8 @@ pub struct Board {
 
     display_updater: mpsc::SyncSender<BoardDisplay>,
 
-    display_size_buf: Positions,
-    display_size: mpsc::Receiver<Positions>,
+    display_size_buf: Area,
+    display_size: mpsc::Receiver<Area>,
 }
 
 impl Simulator for Board {
