@@ -1,8 +1,7 @@
 use std::sync::{mpsc, Arc};
 
-pub use display::BoardDisplay;
-
-pub mod display;
+pub type BoardDisplay = Arc<[Box<[Cell]>]>;
+pub mod simplistic;
 
 pub trait Simulator {
     fn update(&mut self);
@@ -79,4 +78,10 @@ impl From<(i32, i32)> for GlobalPosition {
             y: value.1,
         }
     }
+}
+
+/// A single wrapper struct around the two opposite corners of rectangle.
+pub struct Positions {
+    pub to: GlobalPosition,
+    pub from: GlobalPosition,
 }
