@@ -91,6 +91,13 @@ mod types {
         to: GlobalPosition,
     }
 
+    impl Default for Area {
+        /// Constructs a new [`Area`], with zero size.
+        fn default() -> Self {
+            Self::new((0, 0), (0, 0))
+        }
+    }
+
     impl Area {
         /// Constructs a new [`Area`].
         pub fn new(pos1: impl Into<GlobalPosition>, pos2: impl Into<GlobalPosition>) -> Self {
