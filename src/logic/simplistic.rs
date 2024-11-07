@@ -131,6 +131,20 @@ impl Simulator for Board {
             false => Cell::Dead,
         }
     }
+
+    fn new(size_receiver: mpsc::Receiver<Area>) -> (mpsc::Receiver<BoardDisplay>, Self) {
+        let (sync_sender, sync_receiver) = mpsc::sync_channel(1);
+
+        (
+            sync_receiver,
+            Self {
+                board: Default::default(),
+                display_updater: sync_sender,
+                display_size_buf: Area::default(),
+                display_size: size_receiver,
+            },
+        )
+    }
 }
 
 #[cfg(test)]

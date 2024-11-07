@@ -1,11 +1,13 @@
 use std::sync::{mpsc, Arc};
-
 use types::{Area, Cell, GlobalPosition};
 
-pub type BoardDisplay = Arc<[Box<[Cell]>]>;
 pub mod simplistic;
 
+pub type BoardDisplay = Arc<[Box<[Cell]>]>;
+
 pub trait Simulator {
+    fn new(size_receiver: mpsc::Receiver<Area>) -> (mpsc::Receiver<BoardDisplay>, Self);
+
     fn update(&mut self);
 
     fn batch_update(&mut self, amount: u64) {
