@@ -1,20 +1,18 @@
-use std::sync::{mpsc, Arc};
+use std::sync::{mpsc, Arc, Mutex};
 use types::{Area, Cell, GlobalPosition};
 
 pub mod simplistic;
 
 pub type BoardDisplay = Arc<[Box<[Cell]>]>;
 
+pub type UiReceiver = mpsc::Receiver<UiPacket>;
+pub type SharedDisplay = Arc<Mutex<Option<BoardDisplay>>>;
+pub type SimulatorReceiver = mpsc::Receiver<SimulatorPacket>;
+
 pub trait Simulator {
-    fn new(size_receiver: mpsc::Receiver<Area>) -> (mpsc::Receiver<BoardDisplay>, Self);
+    fn new(ui_receiver: UiReceiver, display: SharedDisplay) -> (SimulatorReceiver, Self);
 
     fn update(&mut self);
-
-    fn batch_update(&mut self, amount: u64) {
-        for _ in 0..amount {
-            self.update();
-        }
-    }
 
     fn set(&mut self, position: GlobalPosition, cell: Cell);
 
@@ -30,6 +28,17 @@ pub trait Simulator {
 
     // fn get_display_board(&self, from: GlobalPosition, to: GlobalPosition) -> BoardDisplay;
     // fn get_display_channel(&self)
+}
+
+/// The data packets that the UI will send to the simulator.
+pub enum UiPacket {
+    /// Requests for a new display area to be rendered.
+    DisplayArea { new_area: Area },
+}
+
+/// The data packets that the simulator will send to the ui.
+pub enum SimulatorPacket {
+    ToDo,
 }
 
 /// A module containing shared data types, the data types are in a separate module to force sub-modules

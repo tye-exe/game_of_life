@@ -1,19 +1,24 @@
 use std::{
     collections::{HashMap, HashSet},
     ops::AddAssign,
-    sync::{mpsc, Arc},
+    sync::{mpsc, Arc, Mutex},
 };
 
-use super::{Area, BoardDisplay, Cell, GlobalPosition, Simulator};
+use super::{
+    Area, BoardDisplay, Cell, GlobalPosition, SharedDisplay, Simulator, SimulatorPacket,
+    SimulatorReceiver, UiPacket, UiReceiver,
+};
 
 /// Represents a board that the cells inhabit.
 pub struct Board {
     board: HashSet<GlobalPosition>,
 
-    display_updater: mpsc::SyncSender<BoardDisplay>,
+    display: SharedDisplay,
+
+    sender: mpsc::Sender<SimulatorPacket>,
+    ui_receiver: UiReceiver,
 
     display_size_buf: Area,
-    display_size: mpsc::Receiver<Area>,
 }
 
 impl Simulator for Board {
@@ -78,40 +83,40 @@ impl Simulator for Board {
         }
 
         // Update the size of the board if applicable
-        use std::sync::mpsc::TryRecvError;
-        match self.display_size.try_recv() {
-            Ok(size) => {
-                self.display_size_buf = size;
-            }
-            Err(TryRecvError::Empty) => {}
-            Err(TryRecvError::Disconnected) => {
-                todo!("Implement cleanup for simulation when display disconnects recv");
-            }
-        };
+        // use std::sync::mpsc::TryRecvError;
+        // match self.display_size.try_recv() {
+        //     Ok(size) => {
+        //         self.display_size_buf = size;
+        //     }
+        //     Err(TryRecvError::Empty) => {}
+        //     Err(TryRecvError::Disconnected) => {
+        //         todo!("Implement cleanup for simulation when display disconnects recv");
+        //     }
+        // };
 
         // Get the state of the board within the specified size
-        let mut board_build = Vec::new();
-        for x in self.display_size_buf.get_to().get_x()..self.display_size_buf.get_from().get_x() {
-            let mut y_builder = Vec::new();
-            for y in self.display_size_buf.get_to().get_y()..self.display_size_buf.get_to().get_y()
-            {
-                y_builder.push(self.get((x, y).into()));
-            }
-            // Convert the vec into the correct type
-            let array: Box<[Cell]> = y_builder.into();
-            board_build.push(array);
-        }
+        // let mut board_build = Vec::new();
+        // for x in self.display_size_buf.get_to().get_x()..self.display_size_buf.get_from().get_x() {
+        //     let mut y_builder = Vec::new();
+        //     for y in self.display_size_buf.get_to().get_y()..self.display_size_buf.get_to().get_y()
+        //     {
+        //         y_builder.push(self.get((x, y).into()));
+        //     }
+        //     // Convert the vec into the correct type
+        //     let array: Box<[Cell]> = y_builder.into();
+        //     board_build.push(array);
+        // }
 
         // Send the board for display if applicable
-        let try_send = self.display_updater.try_send(board_build.into());
-        use std::sync::mpsc::TrySendError;
-        match try_send {
-            Ok(()) => {}
-            Err(TrySendError::Full(_)) => {}
-            Err(TrySendError::Disconnected(_)) => {
-                todo!("Implement cleanup for simulation when display disconnects send");
-            }
-        }
+        // let try_send = self.display_updater.try_send(board_build.into());
+        // use std::sync::mpsc::TrySendError;
+        // match try_send {
+        //     Ok(()) => {}
+        //     Err(TrySendError::Full(_)) => {}
+        //     Err(TrySendError::Disconnected(_)) => {
+        //         todo!("Implement cleanup for simulation when display disconnects send");
+        //     }
+        // }
     }
 
     fn set(&mut self, position: GlobalPosition, cell: Cell) {
@@ -132,16 +137,17 @@ impl Simulator for Board {
         }
     }
 
-    fn new(size_receiver: mpsc::Receiver<Area>) -> (mpsc::Receiver<BoardDisplay>, Self) {
-        let (sync_sender, sync_receiver) = mpsc::sync_channel(1);
+    fn new(ui_receiver: UiReceiver, display: SharedDisplay) -> (SimulatorReceiver, Self) {
+        let (sender, receiver) = mpsc::channel();
 
         (
-            sync_receiver,
+            receiver,
             Self {
                 board: Default::default(),
-                display_updater: sync_sender,
-                display_size_buf: Area::default(),
-                display_size: size_receiver,
+                display,
+                sender,
+                ui_receiver,
+                display_size_buf: Default::default(),
             },
         )
     }
