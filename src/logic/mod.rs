@@ -10,12 +10,22 @@ pub type SharedDisplay = Arc<Mutex<Option<BoardDisplay>>>;
 pub type SimulatorReceiver = mpsc::Receiver<SimulatorPacket>;
 
 pub trait Simulator {
+    /// Creates a new simulator.
     fn new(ui_receiver: UiReceiver, display: SharedDisplay) -> (SimulatorReceiver, Self);
 
-    fn update(&mut self);
+    /// Advances the simulation by one tick.
+    fn tick(&mut self);
 
+    /// Updates the board being displayed by the ui.
+    fn update_display(&mut self);
+
+    /// Handles communication between the ui & the simulation.
+    fn ui_communication(&mut self);
+
+    /// Sets the cell at the given position on the board.
     fn set(&mut self, position: GlobalPosition, cell: Cell);
 
+    /// Gets the cell at the given position on the board.
     fn get(&self, position: GlobalPosition) -> Cell;
 
     fn export(&self, area: Area) {

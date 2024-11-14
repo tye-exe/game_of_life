@@ -22,7 +22,7 @@ pub struct Board {
 }
 
 impl Simulator for Board {
-    fn update(&mut self) {
+    fn tick(&mut self) {
         let mut seen = HashMap::new();
         let mut die = HashSet::new();
 
@@ -81,42 +81,6 @@ impl Simulator for Board {
                 }
             }
         }
-
-        // Update the size of the board if applicable
-        // use std::sync::mpsc::TryRecvError;
-        // match self.display_size.try_recv() {
-        //     Ok(size) => {
-        //         self.display_size_buf = size;
-        //     }
-        //     Err(TryRecvError::Empty) => {}
-        //     Err(TryRecvError::Disconnected) => {
-        //         todo!("Implement cleanup for simulation when display disconnects recv");
-        //     }
-        // };
-
-        // Get the state of the board within the specified size
-        // let mut board_build = Vec::new();
-        // for x in self.display_size_buf.get_to().get_x()..self.display_size_buf.get_from().get_x() {
-        //     let mut y_builder = Vec::new();
-        //     for y in self.display_size_buf.get_to().get_y()..self.display_size_buf.get_to().get_y()
-        //     {
-        //         y_builder.push(self.get((x, y).into()));
-        //     }
-        //     // Convert the vec into the correct type
-        //     let array: Box<[Cell]> = y_builder.into();
-        //     board_build.push(array);
-        // }
-
-        // Send the board for display if applicable
-        // let try_send = self.display_updater.try_send(board_build.into());
-        // use std::sync::mpsc::TrySendError;
-        // match try_send {
-        //     Ok(()) => {}
-        //     Err(TrySendError::Full(_)) => {}
-        //     Err(TrySendError::Disconnected(_)) => {
-        //         todo!("Implement cleanup for simulation when display disconnects send");
-        //     }
-        // }
     }
 
     fn set(&mut self, position: GlobalPosition, cell: Cell) {
@@ -150,6 +114,62 @@ impl Simulator for Board {
                 display_size_buf: Default::default(),
             },
         )
+    }
+
+    fn update_display(&mut self) {
+        // Attempts to acquire the lock on the display.
+        // If a lock could not be acquired the method returns early.
+        use std::sync::TryLockError;
+        let mut display = match self.display.try_lock() {
+            Ok(display) => display,
+            Err(TryLockError::WouldBlock) => {
+                return;
+            }
+            Err(TryLockError::Poisoned(_)) => {
+                core::panic!("Ui panicked!");
+            }
+        };
+
+        // If the ui has not taken the display return early.
+        if display.is_some() {
+            return;
+        }
+
+        // Get the state of the board within the specified size
+        let mut board_build = Vec::new();
+        for x in self.display_size_buf.get_to().get_x()..self.display_size_buf.get_from().get_x() {
+            let mut y_builder = Vec::new();
+            for y in self.display_size_buf.get_to().get_y()..self.display_size_buf.get_to().get_y()
+            {
+                y_builder.push(self.get((x, y).into()));
+            }
+            // Convert the vec into the correct type
+            let array: Box<[Cell]> = y_builder.into();
+            board_build.push(array);
+        }
+
+        // Updates the board to display.
+        *display = Some(board_build.into());
+    }
+
+    fn ui_communication(&mut self) {
+        loop {
+            // Process all sent packets.
+            use std::sync::mpsc::TryRecvError;
+            let ui_packet = match self.ui_receiver.try_recv() {
+                Ok(ui_packet) => ui_packet,
+                Err(TryRecvError::Empty) => {
+                    break;
+                }
+                Err(TryRecvError::Disconnected) => {
+                    std::panic!("UI closed communication!");
+                }
+            };
+
+            match ui_packet {
+                UiPacket::DisplayArea { new_area } => self.display_size_buf = new_area,
+            }
+        }
     }
 }
 
