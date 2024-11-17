@@ -15,7 +15,7 @@ pub struct Board {
 
     display: SharedDisplay,
 
-    sender: mpsc::Sender<SimulatorPacket>,
+    simulator_sender: mpsc::Sender<SimulatorPacket>,
     ui_receiver: UiReceiver,
 
     display_size_buf: Area,
@@ -101,21 +101,6 @@ impl Simulator for Board {
         }
     }
 
-    fn new(ui_receiver: UiReceiver, display: SharedDisplay) -> (SimulatorReceiver, Self) {
-        let (sender, receiver) = mpsc::channel();
-
-        (
-            receiver,
-            Self {
-                board: Default::default(),
-                display,
-                sender,
-                ui_receiver,
-                display_size_buf: Default::default(),
-            },
-        )
-    }
-
     fn update_display(&mut self) {
         // Attempts to acquire the lock on the display.
         // If a lock could not be acquired the method returns early.
@@ -169,6 +154,20 @@ impl Simulator for Board {
             match ui_packet {
                 UiPacket::DisplayArea { new_area } => self.display_size_buf = new_area,
             }
+        }
+    }
+
+    fn new(
+        display: SharedDisplay,
+        ui_receiver: UiReceiver,
+        simulator_sender: super::SimulatorSender,
+    ) -> Self {
+        Self {
+            board: Default::default(),
+            display,
+            simulator_sender,
+            ui_receiver,
+            display_size_buf: Default::default(),
         }
     }
 }

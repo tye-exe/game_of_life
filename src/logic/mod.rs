@@ -5,13 +5,25 @@ pub mod simplistic;
 
 pub type BoardDisplay = Arc<[Box<[Cell]>]>;
 
-pub type UiReceiver = mpsc::Receiver<UiPacket>;
 pub type SharedDisplay = Arc<Mutex<Option<BoardDisplay>>>;
+
+pub type UiReceiver = mpsc::Receiver<UiPacket>;
+pub type UiSender = mpsc::Sender<UiPacket>;
 pub type SimulatorReceiver = mpsc::Receiver<SimulatorPacket>;
+pub type SimulatorSender = mpsc::Sender<SimulatorPacket>;
+
+/// Creates the channels for communication between the [`Simulator`] & the UI.
+pub fn create_channels() -> ((UiSender, UiReceiver), (SimulatorSender, SimulatorReceiver)) {
+    (mpsc::channel(), mpsc::channel())
+}
 
 pub trait Simulator {
     /// Creates a new simulator.
-    fn new(ui_receiver: UiReceiver, display: SharedDisplay) -> (SimulatorReceiver, Self);
+    fn new(
+        display: SharedDisplay,
+        ui_receiver: UiReceiver,
+        simulator_sender: SimulatorSender,
+    ) -> Self;
 
     /// Advances the simulation by one tick.
     fn tick(&mut self);
