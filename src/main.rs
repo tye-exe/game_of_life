@@ -11,6 +11,20 @@ fn main() {
     let ((ui_sender, ui_receiver), (simulator_sender, simulator_receiver)) =
         logic::create_channels();
 
-    ui::ui_init(display.clone(), ui_sender, simulator_receiver).unwrap();
-    logic::simplistic::Board::new(display.clone(), ui_receiver, simulator_sender);
+    // Creates a separate thread for the simulation to run in.
+    let simulator_display = display.clone();
+    let simulator_thread = std::thread::spawn(move || {
+        let mut board =
+            logic::simplistic::Board::new(simulator_display, ui_receiver, simulator_sender);
+        for _ in 0..100 {
+            board.tick();
+            board.update_display();
+            board.ui_communication();
+        }
+    });
+
+    // The ui has to run on the main thread for compatibility purposes.
+    ui::ui_init(display, ui_sender, simulator_receiver).unwrap();
+
+    simulator_thread.join();
 }
