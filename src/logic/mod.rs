@@ -1,15 +1,39 @@
+//! Contains the essential data types & all [`Simulator`] implementations.
+
 use std::sync::{mpsc, Arc, Mutex};
 use types::{Area, Cell, GlobalPosition};
 
+/// A simplistic implementation of [`Simulator`].
+/// There is no consideration to performance; Only a Minimum Viable Product.
 pub mod simplistic;
 
+/// Holds the board data for the ui to display.
+///
+/// This data type assumes that each sub-array has the same length.
+/// The top array can be any length, regardless of the sub-array length.
 pub type BoardDisplay = Arc<[Box<[Cell]>]>;
 
+/// A pointer to the [`Mutex`] used to share the display board.
+/// The time either the ui or the [`Simulator`] will hold a lock on the [`Mutex`] is not guaranteed.
 pub type SharedDisplay = Arc<Mutex<Option<BoardDisplay>>>;
 
+/// The [`Receiver`] for [`UiPacket`]s from the ui.
+///
+/// [`Receiver`]: std::sync::mpsc::Receiver
 pub type UiReceiver = mpsc::Receiver<UiPacket>;
+/// The [`Sender`] for [`UiPacket`]s being sent from the ui.
+/// Only the ui should ever have this [`Sender`].
+///
+/// [`Sender`]: std::sync::mpsc::Sender
 pub type UiSender = mpsc::Sender<UiPacket>;
+/// The [`Receiver`] for [`SimulatorPacket`]s from the [`Simulator`].
+///
+/// [`Receiver`]: std::sync::mpsc::Receiver
 pub type SimulatorReceiver = mpsc::Receiver<SimulatorPacket>;
+/// The [`Sender`] for [`SimulatorPacket`]s being sent from the [`Simulator`].
+/// Only the [`Simulator`] should ever have this [`Sender`].
+///
+/// [`Sender`]: std::sync::mpsc::Sender
 pub type SimulatorSender = mpsc::Sender<SimulatorPacket>;
 
 /// Creates the channels for communication between the [`Simulator`] & the UI.
@@ -17,6 +41,10 @@ pub fn create_channels() -> ((UiSender, UiReceiver), (SimulatorSender, Simulator
     (mpsc::channel(), mpsc::channel())
 }
 
+/// An implementation of [`Simulator`] can simulate Conways game of life.
+///
+/// Each implementation is guaranteed to correctly simulate Conways game of life, however the performance of any
+/// impulmentation is not guaranteed
 pub trait Simulator {
     /// Creates a new simulator.
     fn new(
@@ -66,13 +94,14 @@ pub enum SimulatorPacket {
 /// A module containing shared data types, the data types are in a separate module to force sub-modules
 /// to use the public interface provided by the data types.
 mod types {
+    /// Represents the state of a cell within the Conways game of life simulation.
     #[derive(PartialEq, Debug, Clone, Copy)]
     pub enum Cell {
         Alive,
         Dead,
     }
 
-    /// The x & y positions of a [`Cell`] on the board.
+    /// The x & y positions of a [`Cell`] on the Conways game of life board.
     #[derive(Eq, Hash, PartialEq, Clone, Copy, Debug)]
     pub struct GlobalPosition {
         x: i32,
@@ -80,14 +109,17 @@ mod types {
     }
 
     impl GlobalPosition {
+        /// Creates a new [`GlobalPosition`] at the given x & y coordinates.
         pub fn new(x: i32, y: i32) -> Self {
             Self { x, y }
         }
 
+        /// Gets the represented x position.
         pub fn get_x(&self) -> i32 {
             self.x
         }
 
+        /// Gets the represented y position.
         pub fn get_y(&self) -> i32 {
             self.y
         }
@@ -120,7 +152,9 @@ mod types {
 
     /// A single wrapper struct around the two opposite corners of rectangle.
     pub struct Area {
+        /// The small x & the small y position.
         from: GlobalPosition,
+        /// The big x & the big y position.
         to: GlobalPosition,
     }
 
@@ -132,7 +166,7 @@ mod types {
     }
 
     impl Area {
-        /// Constructs a new [`Area`].
+        /// Constructs a new [`Area`] covering from the small x & y to the large x & y.
         pub fn new(pos1: impl Into<GlobalPosition>, pos2: impl Into<GlobalPosition>) -> Self {
             let pos1 = pos1.into();
             let pos2 = pos2.into();
@@ -167,6 +201,8 @@ mod types {
         use super::*;
 
         #[test]
+        /// Tests that the fields within the area struct are correctly sorted into the smallest x & y and into the
+        /// largest x & y respectively.
         fn from_lower_to_higher() {
             let area = Area::new((10, 5), (5, 10));
 
