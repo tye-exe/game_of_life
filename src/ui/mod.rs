@@ -136,28 +136,40 @@ impl eframe::App for MyApp<'_> {
             // Creates the painter once & reuses it
             let layer_painter = board_painter(ctx);
 
-            use egui::{pos2, Rect, Rounding, Shape};
-            let mut x = 0.0;
-            let mut y = 0.0;
+            use egui::{pos2, Rect, Rounding, Shape, Stroke};
+            // let mut x = 0.0;
+            // let mut y = 0.0;
 
-            while x < size.x {
-                y = 0.0;
-                while y < size.y {
+            let get_x = self.display_cache.get_x();
+            let get_y = self.display_cache.get_y();
+
+            let cell_x = size.x / get_x.get() as f32;
+            let cell_y = size.y / get_y.get() as f32;
+
+            for x in 0..get_x.get() {
+                let x_pos = x as f32 * cell_x;
+
+                for y in 0..get_y.get() {
+                    let y_pos = y as f32 * cell_y;
                     let rect = Rect::from_two_pos(
-                        pos2(x, y),
-                        pos2(x + self.cell_size, y + self.cell_size),
+                        pos2(x_pos, y_pos),
+                        pos2(x_pos + cell_x, y_pos + cell_y),
                     );
-                    let rect_filled = Shape::rect_filled(rect, Rounding::ZERO, {
-                        if x % 2.0 == 0.0 {
-                            self.cell_alive_colour
-                        } else {
-                            self.cell_dead_colour
-                        }
-                    });
-                    layer_painter.add(rect_filled);
-                    y += self.cell_size;
+
+                    let rect = egui::epaint::RectShape::new(
+                        rect,
+                        Rounding::ZERO,
+                        {
+                            match self.display_cache.get_cell((x as i32, y as i32)) {
+                                crate::logic::Cell::Alive => self.cell_alive_colour,
+                                crate::logic::Cell::Dead => self.cell_dead_colour,
+                            }
+                        },
+                        Stroke::new(1.0, Color32::GRAY),
+                    );
+
+                    layer_painter.add(rect);
                 }
-                x += self.cell_size;
             }
         });
     }
