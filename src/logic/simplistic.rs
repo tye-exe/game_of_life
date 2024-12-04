@@ -12,12 +12,9 @@ use super::{
 /// Represents a board that the cells inhabit.
 pub struct Board {
     board: HashSet<GlobalPosition>,
+    generation: u64,
 
     display: SharedDisplay,
-
-    simulator_sender: mpsc::Sender<SimulatorPacket>,
-    ui_receiver: UiReceiver,
-
     display_size_buf: Area,
 }
 
@@ -81,6 +78,8 @@ impl Simulator for Board {
                 }
             }
         }
+
+        self.generation += 1;
     }
 
     fn set(&mut self, position: GlobalPosition, cell: Cell) {
@@ -134,41 +133,44 @@ impl Simulator for Board {
         }
 
         // Updates the board to display.
-        *display = Some(board_build.into());
+        *display = Some(BoardDisplay::new(self.generation, board_build));
     }
 
-    fn ui_communication(&mut self) {
-        loop {
-            // Process all sent packets.
-            use std::sync::mpsc::TryRecvError;
-            let ui_packet = match self.ui_receiver.try_recv() {
-                Ok(ui_packet) => ui_packet,
-                Err(TryRecvError::Empty) => {
-                    break;
-                }
-                Err(TryRecvError::Disconnected) => {
-                    std::panic!("UI closed communication!");
-                }
-            };
-
-            match ui_packet {
-                UiPacket::DisplayArea { new_area } => self.display_size_buf = new_area,
-            }
-        }
-    }
-
-    fn new(
-        display: SharedDisplay,
-        ui_receiver: UiReceiver,
-        simulator_sender: super::SimulatorSender,
-    ) -> Self {
+    fn new(display: SharedDisplay) -> Self {
         Self {
             board: Default::default(),
             display,
-            simulator_sender,
-            ui_receiver,
             display_size_buf: Default::default(),
+            generation: 0,
         }
+    }
+
+    fn set_display_area(&mut self, new_area: Area) {
+        self.display_size_buf = new_area;
+    }
+
+    fn get_generation(&self) -> u64 {
+        self.generation
+    }
+
+    fn save_board(&self) -> super::BoardStore {
+        todo!()
+    }
+
+    fn load_board(&mut self, board: super::BoardStore) -> super::LoadStatus {
+        todo!()
+    }
+
+    fn save_blueprint(&self, area: Area) -> super::BoardStore {
+        todo!()
+    }
+
+    fn load_blueprint(
+        &mut self,
+        load_position: GlobalPosition,
+        blueprint: super::BoardStore,
+    ) -> super::LoadStatus {
+        todo!()
     }
 }
 

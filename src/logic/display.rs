@@ -10,13 +10,40 @@ use super::{Cell, GlobalPosition};
 /// This data type assumes that each sub-array has the same length.
 /// The top array can be any length, regardless of the sub-array length.
 #[cfg_attr(test, derive(Debug, PartialEq))]
-#[derive(derive_more::From, Default)]
-#[from(forward)]
+#[derive(Default)]
 pub struct BoardDisplay {
+    /// The generation of the board to be displayed.
+    generation: u64,
+    /// The area of the board to display.
     board: Arc<[Box<[Cell]>]>,
 }
 
 impl BoardDisplay {
+    /// Constructs a new [`BoardDisplay`] with the given generation & the given board to display.
+    ///
+    /// # Example
+    /// Simple way to create the correct board data type.
+    /// ```
+    /// let mut board_build = Vec::new();
+    /// for _ in 0..4 {
+    ///     let mut y_builder = Vec::new();
+    ///     for y in 0..4 {
+    ///         y_builder.push(Cell::Dead);
+    ///     }
+    ///     // Convert the vec into the correct type
+    ///     let array: Box<[Cell]> = y_builder.into();
+    ///     board_build.push(array);
+    /// }
+    ///
+    /// BoardDisplay::new(0, board_build)
+    /// ```
+    pub fn new(generation: u64, board: impl Into<Arc<[Box<[Cell]>]>>) -> Self {
+        Self {
+            generation,
+            board: board.into(),
+        }
+    }
+
     /// Gets the amount of cells in the x axis.
     ///
     /// If the board is 0 sized then an amount of 10 will be returned.
@@ -70,19 +97,13 @@ mod board_display_tests {
             board_build.push(array);
         }
 
-        board_build.into()
+        BoardDisplay::new(0, board_build)
     }
 
     #[test]
     fn default_is_correct() {
         let board_build: Vec<Box<[Cell]>> = Vec::new();
-
-        assert_eq!(
-            BoardDisplay::default(),
-            BoardDisplay {
-                board: board_build.into()
-            }
-        )
+        assert_eq!(BoardDisplay::default(), BoardDisplay::new(0, board_build))
     }
 
     #[test]

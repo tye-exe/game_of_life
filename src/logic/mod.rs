@@ -1,7 +1,10 @@
 //! Contains the essential data types & all [`Simulator`] implementations.
 
 pub use display::BoardDisplay;
-use std::sync::{mpsc, Arc, Mutex};
+use std::{
+    num::NonZeroU32,
+    sync::{mpsc, Arc, Mutex},
+};
 pub use types::{Area, Cell, GlobalPosition};
 
 mod display;
@@ -44,11 +47,7 @@ pub fn create_channels() -> ((UiSender, UiReceiver), (SimulatorSender, Simulator
 /// impulmentation is not guaranteed
 pub trait Simulator {
     /// Creates a new simulator.
-    fn new(
-        display: SharedDisplay,
-        ui_receiver: UiReceiver,
-        simulator_sender: SimulatorSender,
-    ) -> Self;
+    fn new(display: SharedDisplay) -> Self;
 
     /// Advances the simulation by one tick.
     fn tick(&mut self);
@@ -56,8 +55,8 @@ pub trait Simulator {
     /// Updates the board being displayed by the ui.
     fn update_display(&mut self);
 
-    /// Handles communication between the ui & the simulation.
-    fn ui_communication(&mut self);
+    /// Sets the display area sent to the ui to the given area.
+    fn set_display_area(&mut self, new_area: Area);
 
     /// Sets the cell at the given position on the board.
     fn set(&mut self, position: GlobalPosition, cell: Cell);
@@ -65,27 +64,119 @@ pub trait Simulator {
     /// Gets the cell at the given position on the board.
     fn get(&self, position: GlobalPosition) -> Cell;
 
-    fn export(&self, area: Area) {
-        todo!()
-    }
+    /// Gets the current generation of simulation.
+    fn get_generation(&self) -> u64;
 
-    fn export_file(&self) {
-        todo!()
-    }
+    /// Outputs the entire board as a [`BoardStore`].
+    fn save_board(&self) -> BoardStore;
 
-    // fn get_display_board(&self, from: GlobalPosition, to: GlobalPosition) -> BoardDisplay;
-    // fn get_display_channel(&self)
+    /// Attempts to load a new board.
+    ///
+    /// The result of this attempt will be returned as a [`LoadStatus`].
+    fn load_board(&mut self, board: BoardStore) -> LoadStatus;
+
+    /// Outputs an area of the board as a [`BoardStore`].
+    fn save_blueprint(&self, area: Area) -> BoardStore;
+
+    /// Attempts to load a blueprint at the given position. The given position will be the top left of the loaded blueprint.
+    ///
+    /// The result of this attempt will be returned as a [`LoadStatus`].
+    fn load_blueprint(
+        &mut self,
+        load_position: GlobalPosition,
+        blueprint: BoardStore,
+    ) -> LoadStatus;
 }
 
 /// The data packets that the UI will send to the simulator.
 pub enum UiPacket {
     /// Requests for a new display area to be rendered.
     DisplayArea { new_area: Area },
+    /// Sets a cell on the board.
+    Set {
+        /// The position of the cell to set.
+        position: GlobalPosition,
+        /// The state of the cell to set.
+        cell_state: Cell,
+    },
+
+    /// Requests for the simulation to send a save of the boards current state to the ui for handling.
+    SaveBoard,
+    /// Sends a board to the simulation for it to simulate.
+    LoadBoard {
+        /// The board state to load.
+        board: BoardStore,
+    },
+
+    /// Requests for the simulation to send a save of a portion of the current board to the ui for handling.
+    SaveBlueprint {
+        /// The area to save.
+        area: Area,
+    },
+    /// Sends a blueprint for the simulation to load.
+    LoadBlueprint {
+        /// The position of to load the blueprint at.
+        /// The blueprint will be loaded with this position as the top left.
+        load_position: GlobalPosition,
+        /// The blueprint to load.
+        blueprint: BoardStore,
+    },
+
+    /// Starts the simulation.
+    Start,
+    /// Starts the simulation, with it automatically stopping at the given generation.
+    StartUntil { generation: u64 },
+    /// Stops the simulation.
+    Stop,
+
+    /// Sets the current speed of the simulation.
+    SimulationSpeed { speed: SimulationSpeed },
 }
 
 /// The data packets that the simulator will send to the ui.
 pub enum SimulatorPacket {
-    ToDo,
+    /// A save of the boards current state.
+    BoardSave { board: BoardStore },
+    /// The result of attempting to load a board.
+    BoardLoadResult { status: LoadStatus },
+
+    /// A save of a portion of the board.
+    BlueprintSave { blueprint: BoardStore },
+    /// The result of attempting to load a blueprint.
+    BlueprintLoadResult { status: LoadStatus },
+}
+
+pub struct BoardStore {}
+
+pub enum LoadStatus {
+    Success,
+    Fail,
+}
+
+pub struct SimulationSpeed {
+    ticks_per_second: Option<NonZeroU32>,
+}
+impl SimulationSpeed {
+    pub const UNCAPPED: Self = {
+        Self {
+            ticks_per_second: None,
+        }
+    };
+
+    pub fn new(ticks_per_second: u32) -> Self {
+        Self {
+            ticks_per_second: Some(
+                NonZeroU32::new(ticks_per_second)
+                    .unwrap_or(unsafe { NonZeroU32::new_unchecked(10) }),
+            ),
+        }
+    }
+
+    /// Gets the ticks per second the simulation will run at.
+    /// If [`None`] is returned there is no cap for the simulation speed.
+    pub fn get(&self) -> Option<NonZeroU32> {
+        self.ticks_per_second
+    }
 }
 
 /// A module containing shared data types, the data types are in a separate module to force sub-modules
