@@ -20,7 +20,7 @@ fn main() {
             let send_packet = |packet: SimulatorPacket| match simulator_sender.send(packet) {
                 Ok(_) => {}
                 Err(_) => {
-                    std::panic!("UI closed communication!")
+                    std::panic!("{}", error_text::UI_CLOSED_COMS)
                 }
             };
 
@@ -43,7 +43,7 @@ fn main() {
                             break;
                         }
                         Err(TryRecvError::Disconnected) => {
-                            std::panic!("UI closed communication!");
+                            std::panic!("{}", error_text::UI_CLOSED_COMS);
                         }
                     };
 
@@ -116,14 +116,37 @@ fn main() {
             }
         });
 
-    let simulator_thread =
-        simulator_thread.expect("Unable to create thread for board simulation at OS level.");
+    let simulator_thread = simulator_thread.expect(error_text::CREATE_SIMULATION_THREAD);
 
     // The ui has to run on the main thread for compatibility purposes.
-    ui::ui_init(display, ui_sender, simulator_receiver)
-        .expect("Unable to initialise UI graphical context.");
+    ui::ui_init(display, ui_sender, simulator_receiver).expect(error_text::UI_INIT);
 
-    simulator_thread
-        .join()
-        .expect("Simulator thread was unable to gracefully terminate.");
+    simulator_thread.join().expect(error_text::SIM_THREAD_TERM);
+}
+
+/// Creates a public constant string with the name as the name of the constant
+/// and the text as the value of the string.
+///
+/// # Examples
+/// ```
+/// lang!{QUOTE, "Ya like jazz?"}
+/// assert_eq!(QUOTE, "Ya like jazz?");
+/// ```
+#[macro_export]
+macro_rules! lang {
+    {$($name:tt, $text:literal);*} => {
+        $(
+        pub const $name: &str = $text;
+        )*
+    };
+}
+
+pub mod error_text {
+    lang! {
+        UI_CLOSED_COMS, "UI closed communication to simulation!";
+        CREATE_SIMULATION_THREAD, "Unable to create thread for board simulation at OS level.";
+        UI_INIT, "Unable to initialis UI graphical context.";
+        SIM_THREAD_TERM, "Simulator thread was unable to gracefully terminate";
+        COMMAND_SIM_THREAD_TERM, "Unable to command similator thread to terminate."
+    }
 }

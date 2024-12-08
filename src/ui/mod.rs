@@ -2,25 +2,18 @@
 
 use egui::Color32;
 
-use crate::logic::{BoardDisplay, SharedDisplay, SimulatorReceiver, UiSender};
+use crate::{
+    error_text,
+    logic::{BoardDisplay, SharedDisplay, SimulatorReceiver, UiSender},
+};
 
 mod lang {
-    /// Creates a public constant string with the name as the name of the constant
-    /// and the text as the value of the string.
-    ///
-    /// # Examples
-    /// ```
-    /// lang!(QUOTE, "Ya like jazz?");
-    /// assert_eq!(QUOTE, "Ya like jazz?");
-    /// ```
-    macro_rules! lang {
-        ($name:tt, $text:literal) => {
-            pub const $name: &str = $text;
-        };
-    }
+    use crate::lang;
 
-    lang!(APP_NAME, "Game Of Life");
-    lang!(CELL_SIZE_SLIDER, "Cell Size");
+    lang! {
+        APP_NAME, "Game Of Life";
+        CELL_SIZE_SLIDER, "Cell Size"
+    }
 }
 
 /// Runs the ui.
@@ -51,7 +44,7 @@ pub fn ui_init(
 
     // Command similator thread to terminate after the ui is closed.
     if let Err(_) = ui_sender.send(crate::logic::UiPacket::Terminate) {
-        eprintln!("Unable to command similator thread to terminate.")
+        eprintln!("{}", error_text::COMMAND_SIM_THREAD_TERM)
     };
     run_native
 }
