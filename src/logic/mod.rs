@@ -131,6 +131,10 @@ pub enum UiPacket {
 
     /// Sets the current speed of the simulation.
     SimulationSpeed { speed: SimulationSpeed },
+
+    /// Terminates the simulator thread.
+    /// This is unrecoverable without relaunching the application.
+    Terminate,
 }
 
 /// The data packets that the simulator will send to the ui.

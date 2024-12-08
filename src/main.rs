@@ -90,6 +90,7 @@ fn main() {
                                 tick_rate_limited = false;
                             }
                         },
+                        logic::UiPacket::Terminate => return (),
                     }
                 }
 

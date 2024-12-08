@@ -36,18 +36,24 @@ pub fn ui_init(
         ..Default::default()
     };
 
-    eframe::run_native(
+    let run_native = eframe::run_native(
         lang::APP_NAME,
         native_options,
         Box::new(|cc| {
             Ok(Box::new(MyApp::new(
                 cc,
                 display,
-                ui_sender,
+                ui_sender.clone(),
                 simulator_receiver,
             )))
         }),
-    )
+    );
+
+    // Command similator thread to terminate after the ui is closed.
+    if let Err(_) = ui_sender.send(crate::logic::UiPacket::Terminate) {
+        eprintln!("Unable to command similator thread to terminate.")
+    };
+    run_native
 }
 
 /// The egui id for the board where the cells are being displayed.
