@@ -1,6 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
-use egui::Color32;
+use egui::{pos2, Color32, Painter, Rect};
 
 use crate::{
     error_text,
@@ -52,12 +52,6 @@ pub fn ui_init(
 /// The egui id for the board where the cells are being displayed.
 const BOARD_ID: &str = "board";
 
-/// Creates the painter that will display the board for the given context.
-fn board_painter(ctx: &egui::Context) -> egui::Painter {
-    let layer_id = egui::LayerId::new(egui::Order::Background, BOARD_ID.into());
-    ctx.layer_painter(layer_id)
-}
-
 /// The struct that contains the data for the gui of my app.
 struct MyApp<'a> {
     label: &'a str,
@@ -102,7 +96,26 @@ impl MyApp<'static> {
 
 impl eframe::App for MyApp<'_> {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        let mut size = ctx.input(|i| i.screen_rect()).size();
+        // Stores the size the board will take up.
+        let mut board_rect = Rect::from_min_max(
+            (0.0, 0.0).into(),
+            ctx.input(|i| i.screen_rect()).right_bottom(),
+        );
+
+        let top_size = egui::TopBottomPanel::top("Top_Panel")
+            .show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    ui.button("Start");
+                    ui.button("Stop");
+                });
+            })
+            .response
+            .rect
+            .size();
+
+        // Account for top panel.
+        *board_rect.top_mut() += top_size.y;
+        *board_rect.bottom_mut() += top_size.y;
 
         // Draws the right side panel & gets the size of it.
         let panel_size = egui::SidePanel::right("Right_Panel")
@@ -110,7 +123,7 @@ impl eframe::App for MyApp<'_> {
                 let pointer_latest_pos = ctx.pointer_latest_pos();
                 if let Some(pos) = pointer_latest_pos {
                     ui.heading(pos.to_string());
-                    ui.heading(size.to_string());
+                    ui.heading(board_rect.size().to_string());
                 }
 
                 ui.add(
@@ -128,22 +141,24 @@ impl eframe::App for MyApp<'_> {
             .size();
 
         // Reduces the board area to exclude the side panel
-        size.x -= panel_size.x;
+        *board_rect.right_mut() -= panel_size.x;
 
         // Draws the board panel last, so that the available size to draw is known
         egui::CentralPanel::default().show(ctx, |ui| {
             // Creates the painter once & reuses it
-            let layer_painter = board_painter(ctx);
+            let layer_painter = Painter::new(
+                ctx.clone(), // ctx is cloned in egui implementations.
+                egui::LayerId::new(egui::Order::Background, BOARD_ID.into()),
+                board_rect,
+            );
 
-            use egui::{pos2, Rect, Rounding, Shape, Stroke};
-            // let mut x = 0.0;
-            // let mut y = 0.0;
+            use egui::{pos2, Rect, Rounding, Stroke};
 
             let get_x = self.display_cache.get_x();
             let get_y = self.display_cache.get_y();
 
-            let cell_x = size.x / get_x.get() as f32;
-            let cell_y = size.y / get_y.get() as f32;
+            let cell_x = board_rect.x_range().span() / get_x.get() as f32;
+            let cell_y = board_rect.y_range().span() / get_y.get() as f32;
 
             for x in 0..get_x.get() {
                 let x_pos = x as f32 * cell_x;
