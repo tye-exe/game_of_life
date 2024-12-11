@@ -12,7 +12,12 @@ mod lang {
 
     lang! {
         APP_NAME, "Game Of Life";
-        CELL_SIZE_SLIDER, "Cell Size"
+        CELL_SIZE_SLIDER, "Cell Size";
+        UNRECOVERABLE_ERROR_HEADER, "Encountered Unrecoverable Error";
+        ERROR_MESSAGE, "Error: ";
+        ERROR_ADVICE, "Please restart the application.";
+        SEND_ERROR, "Unable to send packet to simulation.";
+        SHARED_DISPLAY_POISIONED, "Unable to read board from simulation."
     }
 }
 
@@ -56,6 +61,9 @@ const BOARD_ID: &str = "board";
 struct MyApp<'a> {
     label: &'a str,
 
+    /// Stores relevant information for unrecoverable errors.
+    error_occurred: Option<ErrorData<'a>>,
+
     /// The updated display produced by the simulator.
     display_update: SharedDisplay,
     /// The current display being rendered.
@@ -90,12 +98,52 @@ impl MyApp<'static> {
             cell_size: 5.0,
             ui_sender,
             simulator_receiver,
+            error_occurred: None,
         }
     }
 }
 
-impl eframe::App for MyApp<'_> {
+impl eframe::App for MyApp<'static> {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        if let Some(error_data) = &mut self.error_occurred {
+            // Ensures the background is empty.
+            egui::CentralPanel::default().show(ctx, |_ui| {});
+
+            // Calculates the position of the window.
+            let screen_center = ctx.screen_rect().center();
+            let position = error_data
+                .window_size
+                .map(|size| {
+                    let x_offset = size.x / 2.0;
+                    let y_offset = size.y / 2.0;
+
+                    let x = screen_center.x - x_offset;
+                    let y = screen_center.y - y_offset;
+
+                    egui::pos2(x, y)
+                })
+                .unwrap_or(screen_center);
+
+            // Create pop-up window to display error.
+            // Centering normal text is a nightmare so a pop-up will sufice.
+            let window = egui::Window::new(lang::UNRECOVERABLE_ERROR_HEADER)
+                .movable(false)
+                .order(egui::Order::Foreground)
+                .current_pos(position)
+                .resizable(false)
+                .show(ctx, |ui| {
+                    ui.label(format!("{}\"{}\"", lang::ERROR_MESSAGE, error_data.error));
+                    ui.label(lang::ERROR_ADVICE)
+                });
+
+            // Calculate the current size of the pop-up to use for centering on the next frame.
+            if let Some(window) = window {
+                error_data.window_size = Some(window.response.rect.size());
+            }
+
+            // Don't perform any other actions as the application is in an invalid state.
+            return;
+        }
         // Stores the size the board will take up.
         let mut board_rect = Rect::from_min_max(
             (0.0, 0.0).into(),
@@ -186,5 +234,32 @@ impl eframe::App for MyApp<'_> {
                 }
             }
         });
+    }
+}
+
+/// Stores relevant information for unrecoverable errors.
+struct ErrorData<'a> {
+    /// The error message.
+    error: &'a str,
+    /// The size of the window displaying the error the previous frame.
+    ///
+    /// This is used to centre the window.
+    window_size: Option<egui::Vec2>,
+}
+
+impl<'a> ErrorData<'a> {
+    /// Creates a new [`ErrorData`] with the given sing as the error message.
+    pub fn from_error(error: &'a str) -> Self {
+        ErrorData {
+            error,
+            window_size: None,
+        }
+    }
+
+    /// Create a new [`ErrorData`] with the given string as the error message; Outputting the given error as a
+    /// standardised log message.
+    pub fn from_error_and_log(error_text: &'a str, error: impl std::error::Error) -> Self {
+        log::error!("{} - {}", error_text, error);
+        Self::from_error(error_text)
     }
 }
