@@ -144,6 +144,26 @@ impl eframe::App for MyApp<'static> {
             // Don't perform any other actions as the application is in an invalid state.
             return;
         }
+
+        // Update display
+        match self.display_update.try_lock() {
+            Ok(mut board) => {
+                if let Some(board) = board.take() {
+                    self.display_cache = board;
+                }
+            }
+            Err(std::sync::TryLockError::WouldBlock) => {
+                // The display cache can still be used.
+            }
+            // Err(_) => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
+            Err(std::sync::TryLockError::Poisoned(err)) => {
+                self.error_occurred = Some(ErrorData::from_error_and_log(
+                    lang::SHARED_DISPLAY_POISIONED,
+                    err,
+                ))
+            }
+        }
+
         // Stores the size the board will take up.
         let mut board_rect = Rect::from_min_max(
             (0.0, 0.0).into(),
