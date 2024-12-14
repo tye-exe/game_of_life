@@ -1,10 +1,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
-use egui::{pos2, Color32, Painter, Rect};
+use egui::{Color32, Painter, Rect};
 
 use crate::{
     error_text,
-    logic::{BoardDisplay, SharedDisplay, SimulatorReceiver, UiSender},
+    logic::{BoardDisplay, SharedDisplay, SimulatorReceiver, UiPacket, UiSender},
 };
 
 mod lang {
@@ -27,10 +27,7 @@ pub fn ui_init(
     ui_sender: UiSender,
     simulator_receiver: SimulatorReceiver,
 ) -> eframe::Result<()> {
-    env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
-
     let native_options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default(),
         ..Default::default()
     };
 
@@ -48,21 +45,25 @@ pub fn ui_init(
     );
 
     // Command similator thread to terminate after the ui is closed.
-    if let Err(_) = ui_sender.send(crate::logic::UiPacket::Terminate) {
-        eprintln!("{}", error_text::COMMAND_SIM_THREAD_TERM)
+    if ui_sender.send(crate::logic::UiPacket::Terminate).is_err() {
+        log::error!("{}", error_text::COMMAND_SIM_THREAD_TERM)
     };
     run_native
 }
 
 /// The egui id for the board where the cells are being displayed.
 const BOARD_ID: &str = "board";
+/// The egui id for the top panel.
+const TOP_PANEL: &str = "Top_Panel";
+/// The egui id for the right panel.
+const RIGHT_PANEL: &str = "Right_Panel";
 
 /// The struct that contains the data for the gui of my app.
 struct MyApp<'a> {
     label: &'a str,
 
     /// Stores relevant information for unrecoverable errors.
-    error_occurred: Option<ErrorData<'a>>,
+    error_occurred: Option<ErrorData>,
 
     /// The updated display produced by the simulator.
     display_update: SharedDisplay,
@@ -84,7 +85,7 @@ struct MyApp<'a> {
 
 impl MyApp<'static> {
     pub fn new(
-        creation_context: &eframe::CreationContext<'_>,
+        _creation_context: &eframe::CreationContext<'_>,
         display: SharedDisplay,
         ui_sender: UiSender,
         simulator_receiver: SimulatorReceiver,
@@ -104,7 +105,9 @@ impl MyApp<'static> {
 }
 
 impl eframe::App for MyApp<'static> {
-    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        let mut to_send = Vec::new();
+
         if let Some(error_data) = &mut self.error_occurred {
             // Ensures the background is empty.
             egui::CentralPanel::default().show(ctx, |_ui| {});
@@ -132,7 +135,11 @@ impl eframe::App for MyApp<'static> {
                 .current_pos(position)
                 .resizable(false)
                 .show(ctx, |ui| {
-                    ui.label(format!("{}\"{}\"", lang::ERROR_MESSAGE, error_data.error));
+                    ui.label(format!(
+                        "{}\"{}\"",
+                        lang::ERROR_MESSAGE,
+                        error_data.error_message
+                    ));
                     ui.label(lang::ERROR_ADVICE)
                 });
 
@@ -145,48 +152,32 @@ impl eframe::App for MyApp<'static> {
             return;
         }
 
-        // Update display
-        match self.display_update.try_lock() {
-            Ok(mut board) => {
-                if let Some(board) = board.take() {
-                    self.display_cache = board;
-                }
-            }
-            Err(std::sync::TryLockError::WouldBlock) => {
-                // The display cache can still be used.
-            }
-            // Err(_) => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
-            Err(std::sync::TryLockError::Poisoned(err)) => {
-                self.error_occurred = Some(ErrorData::from_error_and_log(
-                    lang::SHARED_DISPLAY_POISIONED,
-                    err,
-                ))
-            }
-        }
-
         // Stores the size the board will take up.
         let mut board_rect = Rect::from_min_max(
             (0.0, 0.0).into(),
             ctx.input(|i| i.screen_rect()).right_bottom(),
         );
 
-        let top_size = egui::TopBottomPanel::top("Top_Panel")
-            .show(ctx, |ui| {
-                ui.horizontal(|ui| {
-                    ui.button("Start");
-                    ui.button("Stop");
-                });
+        let show = egui::TopBottomPanel::top(TOP_PANEL).show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                if ui.button("Start").clicked() {
+                    to_send.push(UiPacket::Start);
+                };
+                if ui.button("Stop").clicked() {
+                    to_send.push(UiPacket::Stop);
+                }
             })
-            .response
-            .rect
-            .size();
+            .inner;
+        });
+
+        let top_size = show.response.rect.size();
 
         // Account for top panel.
         *board_rect.top_mut() += top_size.y;
         *board_rect.bottom_mut() += top_size.y;
 
         // Draws the right side panel & gets the size of it.
-        let panel_size = egui::SidePanel::right("Right_Panel")
+        let panel_size = egui::SidePanel::right(RIGHT_PANEL)
             .show(ctx, |ui| {
                 let pointer_latest_pos = ctx.pointer_latest_pos();
                 if let Some(pos) = pointer_latest_pos {
@@ -212,74 +203,101 @@ impl eframe::App for MyApp<'static> {
         *board_rect.right_mut() -= panel_size.x;
 
         // Draws the board panel last, so that the available size to draw is known
-        egui::CentralPanel::default().show(ctx, |ui| {
-            // Creates the painter once & reuses it
-            let layer_painter = Painter::new(
-                ctx.clone(), // ctx is cloned in egui implementations.
-                egui::LayerId::new(egui::Order::Background, BOARD_ID.into()),
-                board_rect,
-            );
+        // egui::CentralPanel::default().show(ctx, |ui| {
+        // Creates the painter once & reuses it
+        let layer_painter = Painter::new(
+            ctx.clone(), // ctx is cloned in egui implementations.
+            egui::LayerId::new(egui::Order::Background, BOARD_ID.into()),
+            board_rect,
+        );
 
-            use egui::{pos2, Rect, Rounding, Stroke};
+        use egui::{pos2, Rect, Rounding, Stroke};
 
-            let get_x = self.display_cache.get_x();
-            let get_y = self.display_cache.get_y();
+        let get_x = self.display_cache.get_x();
+        let get_y = self.display_cache.get_y();
 
-            let cell_x = board_rect.x_range().span() / get_x.get() as f32;
-            let cell_y = board_rect.y_range().span() / get_y.get() as f32;
+        let cell_x = board_rect.x_range().span() / get_x.get() as f32;
+        let cell_y = board_rect.y_range().span() / get_y.get() as f32;
 
-            for x in 0..get_x.get() {
-                let x_pos = x as f32 * cell_x;
+        for x in 0..get_x.get() {
+            let x_pos = x as f32 * cell_x;
 
-                for y in 0..get_y.get() {
-                    let y_pos = y as f32 * cell_y;
-                    let rect = Rect::from_two_pos(
-                        pos2(x_pos, y_pos),
-                        pos2(x_pos + cell_x, y_pos + cell_y),
-                    );
+            for y in 0..get_y.get() {
+                let y_pos = y as f32 * cell_y;
+                let rect =
+                    Rect::from_two_pos(pos2(x_pos, y_pos), pos2(x_pos + cell_x, y_pos + cell_y));
 
-                    let rect = egui::epaint::RectShape::new(
-                        rect,
-                        Rounding::ZERO,
-                        {
-                            match self.display_cache.get_cell((x as i32, y as i32)) {
-                                crate::logic::Cell::Alive => self.cell_alive_colour,
-                                crate::logic::Cell::Dead => self.cell_dead_colour,
-                            }
-                        },
-                        Stroke::new(1.0, Color32::GRAY),
-                    );
+                let rect = egui::epaint::RectShape::new(
+                    rect,
+                    Rounding::ZERO,
+                    {
+                        match self.display_cache.get_cell((x as i32, y as i32)) {
+                            crate::logic::Cell::Alive => self.cell_alive_colour,
+                            crate::logic::Cell::Dead => self.cell_dead_colour,
+                        }
+                    },
+                    Stroke::new(1.0, Color32::GRAY),
+                );
 
-                    layer_painter.add(rect);
+                layer_painter.add(rect);
+            }
+        }
+        // });
+
+        // Process fallible code //
+
+        // Update display
+        match self.display_update.try_lock() {
+            Ok(mut board) => {
+                if let Some(board) = board.take() {
+                    self.display_cache = board;
                 }
             }
-        });
+            Err(std::sync::TryLockError::WouldBlock) => {
+                // The display cache can still be used.
+            }
+            Err(std::sync::TryLockError::Poisoned(err)) => {
+                self.error_occurred = Some(ErrorData::from_error_and_log(
+                    lang::SHARED_DISPLAY_POISIONED,
+                    err,
+                ));
+                return;
+            }
+        }
+
+        // Process user interaction
+        for message in to_send {
+            if let Err(err) = self.ui_sender.send(message) {
+                self.error_occurred = Some(ErrorData::from_error_and_log(lang::SEND_ERROR, err));
+                return;
+            }
+        }
     }
 }
 
 /// Stores relevant information for unrecoverable errors.
-struct ErrorData<'a> {
+struct ErrorData {
     /// The error message.
-    error: &'a str,
+    error_message: &'static str,
     /// The size of the window displaying the error the previous frame.
     ///
     /// This is used to centre the window.
     window_size: Option<egui::Vec2>,
 }
 
-impl<'a> ErrorData<'a> {
+impl ErrorData {
     /// Creates a new [`ErrorData`] with the given sing as the error message.
-    pub fn from_error(error: &'a str) -> Self {
+    pub fn from_error(error_message: &'static str) -> Self {
         ErrorData {
-            error,
+            error_message,
             window_size: None,
         }
     }
 
     /// Create a new [`ErrorData`] with the given string as the error message; Outputting the given error as a
     /// standardised log message.
-    pub fn from_error_and_log(error_text: &'a str, error: impl std::error::Error) -> Self {
-        log::error!("{} - {}", error_text, error);
-        Self::from_error(error_text)
+    pub fn from_error_and_log(error_message: &'static str, error: impl std::error::Error) -> Self {
+        log::error!("{} - {}", error_message, error);
+        Self::from_error(error_message)
     }
 }

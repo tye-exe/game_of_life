@@ -6,6 +6,8 @@ mod logic;
 mod ui;
 
 fn main() {
+    env_logger::init();
+
     let display: SharedDisplay = Default::default();
 
     let ((ui_sender, ui_receiver), (simulator_sender, simulator_receiver)) =
