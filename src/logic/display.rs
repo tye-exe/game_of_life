@@ -9,7 +9,7 @@ use super::{Cell, GlobalPosition};
 ///
 /// This data type assumes that each sub-array has the same length.
 /// The top array can be any length, regardless of the sub-array length.
-#[cfg_attr(test, derive(Debug, PartialEq))]
+#[cfg_attr(any(test, debug_assertions), derive(Debug, PartialEq, Clone))]
 #[derive(Default)]
 pub struct BoardDisplay {
     /// The generation of the board to be displayed.

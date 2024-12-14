@@ -89,6 +89,7 @@ pub trait Simulator {
 }
 
 /// The data packets that the UI will send to the simulator.
+#[cfg_attr(any(test, debug_assertions), derive(Debug))]
 pub enum UiPacket {
     /// Requests for a new display area to be rendered.
     DisplayArea { new_area: Area },
@@ -138,6 +139,7 @@ pub enum UiPacket {
 }
 
 /// The data packets that the simulator will send to the ui.
+#[cfg_attr(any(test, debug_assertions), derive(Debug))]
 pub enum SimulatorPacket {
     /// A save of the boards current state.
     BoardSave { board: BoardStore },
@@ -150,13 +152,16 @@ pub enum SimulatorPacket {
     BlueprintLoadResult { status: LoadStatus },
 }
 
+#[cfg_attr(any(test, debug_assertions), derive(Debug))]
 pub struct BoardStore {}
 
+#[cfg_attr(any(test, debug_assertions), derive(Debug))]
 pub enum LoadStatus {
     Success,
     Fail,
 }
 
+#[cfg_attr(any(test, debug_assertions), derive(Debug))]
 pub struct SimulationSpeed {
     ticks_per_second: Option<NonZeroU32>,
 }
@@ -249,6 +254,8 @@ mod types {
     }
 
     /// A single wrapper struct around the two opposite corners of rectangle.
+    #[derive(Clone, Copy)]
+    #[cfg_attr(any(test, debug_assertions), derive(Debug))]
     pub struct Area {
         /// The small x & the small y position.
         from: GlobalPosition,

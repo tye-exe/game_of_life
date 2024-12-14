@@ -121,10 +121,12 @@ impl Simulator for Board {
 
         // Get the state of the board within the specified size
         let mut board_build = Vec::new();
-        for x in self.display_size_buf.get_to().get_x()..self.display_size_buf.get_from().get_x() {
+
+        let from = &self.display_size_buf.get_from();
+        let to = &self.display_size_buf.get_to();
+        for x in from.get_x()..to.get_x() {
             let mut y_builder = Vec::new();
-            for y in self.display_size_buf.get_to().get_y()..self.display_size_buf.get_to().get_y()
-            {
+            for y in from.get_y()..to.get_y() {
                 y_builder.push(self.get((x, y).into()));
             }
             // Convert the vec into the correct type
@@ -181,24 +183,107 @@ mod tests {
     #[test]
     /// A cell will be dead unless it has been set to alive.
     fn dead_by_default() {
-        let position = GlobalPosition::new(1, 1);
-        // let board = Board::default();
-
-        // assert_eq!(board.get(position), Cell::Dead);
+        let board = Board::new(Default::default());
+        for x in -10..=10 {
+            for y in -10..=10 {
+                assert_eq!(board.get((x, y).into()), Cell::Dead)
+            }
+        }
     }
 
     #[test]
     /// Sets a cell to be alive.
     fn set_cell_alive() {
         let position = GlobalPosition::new(1, 1);
-        // let mut board = Board::default();
+        let mut board = Board::new(Default::default());
 
-        // board.set(position, Cell::Alive);
-        // assert_eq!(board.get(position), Cell::Alive);
+        board.set(position, Cell::Alive);
+        assert_eq!(board.get(position), Cell::Alive);
     }
 
-    // #[test]
-    // fn simulates_correctly() {
+    /// Returns an iterator over [`Cell`], which gives "[`Cell::Alive`], [`Cell::Dead`]" in that order, forever.
+    fn generate_cell_iterator() -> std::iter::FromFn<impl FnMut() -> Option<Cell>> {
+        let mut generated_cell = Cell::Dead;
+        let cell_iter = std::iter::from_fn(move || {
+            generated_cell = match generated_cell {
+                Cell::Alive => Cell::Dead,
+                Cell::Dead => Cell::Alive,
+            };
+            Some(generated_cell)
+        });
+        cell_iter
+    }
 
-    // }
+    #[test]
+    /// Sets a pattern of alive & dead cells.
+    fn set_cell_pattern() {
+        let display: SharedDisplay = Default::default();
+        let mut board = Board::new(display.clone());
+
+        // Populate board
+        let mut cell_iter = generate_cell_iterator();
+        for x in -10..=10 {
+            for y in -10..=10 {
+                let cell = cell_iter.next().unwrap();
+                board.set((x, y).into(), cell)
+            }
+        }
+
+        // Read board
+        let mut cell_iter = generate_cell_iterator();
+        for x in -10..=10 {
+            for y in -10..=10 {
+                let cell = cell_iter.next().unwrap();
+                let get = board.get((x, y).into());
+                assert_eq!(cell, get);
+            }
+        }
+    }
+
+    #[test]
+    /// The derived display will correctly represent the board.
+    fn generates_correct_display() {
+        let display: SharedDisplay = Default::default();
+        let mut board = Board::new(display.clone());
+
+        // Populate board
+        let mut cell_iter = generate_cell_iterator();
+        for y in -10..=10 {
+            for x in -10..=10 {
+                board.set((x, y).into(), cell_iter.next().unwrap());
+            }
+        }
+
+        // Display init
+        board.set_display_area(Area::new((-10, -10), (10, 10)));
+        board.update_display();
+
+        let mut mutex_guard = display.lock().unwrap();
+        let take = mutex_guard.take();
+        assert!(take.is_some());
+
+        // Generate expected result
+        let var_name = {
+            use Cell::{Alive, Dead};
+            let mut vec = Vec::new();
+
+            for _ in 0..10 {
+                let a: Box<[Cell]> = Box::new([
+                    Alive, Dead, Alive, Dead, Alive, Dead, Alive, Dead, Alive, Dead, Alive, Dead,
+                    Alive, Dead, Alive, Dead, Alive, Dead, Alive, Dead,
+                ]);
+                let b = Box::new([
+                    Dead, Alive, Dead, Alive, Dead, Alive, Dead, Alive, Dead, Alive, Dead, Alive,
+                    Dead, Alive, Dead, Alive, Dead, Alive, Dead, Alive,
+                ]);
+                vec.push(a);
+                vec.push(b);
+            }
+
+            vec
+        };
+
+        let board_display = BoardDisplay::new(0, var_name);
+        assert_eq!(board_display, take.unwrap())
+    }
 }
