@@ -1,10 +1,12 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
-use egui::{Color32, Painter, Rect};
+use egui::{Color32, Id, Painter, Rect};
 
 use crate::{
     error_text,
-    logic::{BoardDisplay, SharedDisplay, SimulatorReceiver, UiPacket, UiSender},
+    logic::{
+        Area, BoardDisplay, GlobalPosition, SharedDisplay, SimulatorReceiver, UiPacket, UiSender,
+    },
 };
 
 mod lang {
@@ -57,6 +59,7 @@ const BOARD_ID: &str = "board";
 const TOP_PANEL: &str = "Top_Panel";
 /// The egui id for the right panel.
 const RIGHT_PANEL: &str = "Right_Panel";
+/// The egui id for the debug window.
 #[cfg(debug_assertions)]
 const DEBUG_WINDOW: &str = "Debug_Window";
 
@@ -64,6 +67,7 @@ const DEBUG_WINDOW: &str = "Debug_Window";
 struct MyApp<'a> {
     label: &'a str,
 
+    /// Whether the debug window is open or not.
     #[cfg(debug_assertions)]
     debug_menu_open: bool,
 
@@ -74,6 +78,12 @@ struct MyApp<'a> {
     display_update: SharedDisplay,
     /// The current display being rendered.
     display_cache: BoardDisplay,
+    /// The area of the board to request being displayed.
+    display_area: Area,
+    /// The x offset from the board being displayed.
+    x_offset: f32,
+    /// The y offset from the board being displayed.
+    y_offset: f32,
 
     /// A channel to send data to the simulator.
     ui_sender: UiSender,
@@ -101,12 +111,15 @@ impl MyApp<'static> {
             display_cache: Default::default(),
             cell_alive_colour: Color32::WHITE,
             cell_dead_colour: Color32::BLACK,
-            cell_size: 5.0,
+            cell_size: 15.0,
             ui_sender,
             simulator_receiver,
             error_occurred: None,
             #[cfg(debug_assertions)]
-            debug_menu_open: false,
+            debug_menu_open: true,
+            x_offset: 0.0,
+            y_offset: 0.0,
+            display_area: Area::new((-10, -10), (10, 10)),
         }
     }
 }
@@ -141,7 +154,34 @@ impl eframe::App for MyApp<'static> {
                         {
                             self.error_occurred = None;
                         }
-                    })
+                    });
+                    // ui.add(egui::Separator::horizontal())
+                    ui.separator();
+                    ui.heading("Internal Values");
+                    ui.label(format!(
+                        "Error Occurred: {}\n\
+                        X Offset: {}\n\
+                        Y Offset: {}\n\
+                        Cell Alive Colour: {:#?}\n\
+                        Cell Dead Colour: {:#?}\n\
+                        Cell Size: {}",
+                        match &self.error_occurred {
+                            Some(err) => format!("{:?}", err),
+                            None => "No Error".to_owned(),
+                        },
+                        self.x_offset,
+                        self.y_offset,
+                        self.cell_alive_colour,
+                        self.cell_dead_colour,
+                        self.cell_size
+                    ));
+                    ui.label(format!(
+                        "Cursor Position: {}",
+                        match ctx.pointer_latest_pos() {
+                            Some(pos) => pos.to_string(),
+                            None => "Offscreen".to_owned(),
+                        },
+                    ));
                 });
         }
 
@@ -222,12 +262,6 @@ impl eframe::App for MyApp<'static> {
         // Draws the right side panel & gets the size of it.
         let panel_size = egui::SidePanel::right(RIGHT_PANEL)
             .show(ctx, |ui| {
-                let pointer_latest_pos = ctx.pointer_latest_pos();
-                if let Some(pos) = pointer_latest_pos {
-                    ui.heading(pos.to_string());
-                    ui.heading(board_rect.size().to_string());
-                }
-
                 ui.add(
                     egui::Slider::new(&mut self.cell_size, 4.0..=50.0)
                         // The slider limits should just be suggestions for the user.
@@ -319,6 +353,7 @@ impl eframe::App for MyApp<'static> {
 }
 
 /// Stores relevant information for unrecoverable errors.
+#[cfg_attr(debug_assertions, derive(Debug))]
 struct ErrorData {
     /// The error message.
     error_message: &'static str,
