@@ -57,10 +57,15 @@ const BOARD_ID: &str = "board";
 const TOP_PANEL: &str = "Top_Panel";
 /// The egui id for the right panel.
 const RIGHT_PANEL: &str = "Right_Panel";
+#[cfg(debug_assertions)]
+const DEBUG_WINDOW: &str = "Debug_Window";
 
 /// The struct that contains the data for the gui of my app.
 struct MyApp<'a> {
     label: &'a str,
+
+    #[cfg(debug_assertions)]
+    debug_menu_open: bool,
 
     /// Stores relevant information for unrecoverable errors.
     error_occurred: Option<ErrorData>,
@@ -100,6 +105,8 @@ impl MyApp<'static> {
             ui_sender,
             simulator_receiver,
             error_occurred: None,
+            #[cfg(debug_assertions)]
+            debug_menu_open: false,
         }
     }
 }
@@ -107,6 +114,36 @@ impl MyApp<'static> {
 impl eframe::App for MyApp<'static> {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let mut to_send = Vec::new();
+
+        #[cfg(debug_assertions)]
+        {
+            egui::Window::new(DEBUG_WINDOW)
+                .open(&mut self.debug_menu_open)
+                .show(ctx, |ui| {
+                    ui.heading("Errors");
+                    ui.horizontal_top(|ui| {
+                        if ui
+                            .button("Cause error")
+                            .on_hover_text("Tests the unrecoverable error feature")
+                            .clicked()
+                        {
+                            self.error_occurred = Some(ErrorData::from_error(
+                                "Test error occurred! Remove it with the debug menu.",
+                            ));
+                        }
+
+                        if ui
+                            .button("Clear error")
+                            .on_hover_text(
+                                "Clears the current unrecoverable error\n⚠ Use with caution! ⚠",
+                            )
+                            .clicked()
+                        {
+                            self.error_occurred = None;
+                        }
+                    })
+                });
+        }
 
         if let Some(error_data) = &mut self.error_occurred {
             // Ensures the background is empty.
@@ -166,8 +203,14 @@ impl eframe::App for MyApp<'static> {
                 if ui.button("Stop").clicked() {
                     to_send.push(UiPacket::Stop);
                 }
+
+                #[cfg(debug_assertions)]
+                {
+                    if ui.button("Debug Menu").clicked() {
+                        self.debug_menu_open = !self.debug_menu_open
+                    }
+                }
             })
-            .inner;
         });
 
         let top_size = show.response.rect.size();
