@@ -34,6 +34,7 @@ fn main() {
             let mut is_running = false;
             let mut run_until = None;
             let mut tick_rate_limited = false;
+            let mut display_needs_updating = false;
 
             loop {
                 // Process all received packets.
@@ -51,12 +52,16 @@ fn main() {
 
                     match ui_packet {
                         logic::UiPacket::DisplayArea { new_area } => {
-                            board.set_display_area(new_area)
+                            board.set_display_area(new_area);
+                            display_needs_updating = true;
                         }
                         logic::UiPacket::Set {
                             position,
                             cell_state,
-                        } => board.set(position, cell_state),
+                        } => {
+                            board.set(position, cell_state);
+                            display_needs_updating = true;
+                        }
                         logic::UiPacket::SaveBoard => {
                             let board = board.save_board();
                             send_packet(SimulatorPacket::BoardSave { board });
@@ -64,6 +69,7 @@ fn main() {
                         logic::UiPacket::LoadBoard { board: new_board } => {
                             let status = board.load_board(new_board);
                             send_packet(SimulatorPacket::BoardLoadResult { status });
+                            display_needs_updating = true;
                         }
                         logic::UiPacket::SaveBlueprint { area } => {
                             let blueprint = board.save_blueprint(area);
@@ -74,7 +80,8 @@ fn main() {
                             blueprint,
                         } => {
                             let status = board.load_blueprint(load_position, blueprint);
-                            send_packet(SimulatorPacket::BlueprintLoadResult { status })
+                            send_packet(SimulatorPacket::BlueprintLoadResult { status });
+                            display_needs_updating = true;
                         }
                         logic::UiPacket::Start => is_running = true,
                         logic::UiPacket::StartUntil { generation } => {
@@ -98,6 +105,11 @@ fn main() {
 
                 // If the game is not running then wait for ≈ 100ms before performing any updates to save resources.
                 if !is_running {
+                    if display_needs_updating {
+                        board.update_display();
+                        display_needs_updating = !display_needs_updating;
+                    }
+
                     thread::sleep(Duration::from_millis(100));
                     continue;
                 }
