@@ -257,10 +257,10 @@ mod types {
     #[derive(Clone, Copy)]
     #[cfg_attr(any(test, debug_assertions), derive(Debug))]
     pub struct Area {
-        /// The small x & the small y position.
-        from: GlobalPosition,
-        /// The big x & the big y position.
-        to: GlobalPosition,
+        /// The min x & the min y position.
+        min: GlobalPosition,
+        /// The max x & the max y position.
+        max: GlobalPosition,
     }
 
     impl Default for Area {
@@ -287,17 +287,72 @@ mod types {
                 y: pos1.get_y().max(pos2.get_y()),
             };
 
-            Self { from, to }
+            Self { min: from, max: to }
         }
 
-        /// Gets the smallest x & smallest y of the area.
+        /// Gets the minimum x & minimum y of the area.
         pub fn get_from(&self) -> GlobalPosition {
-            self.from
+            self.min
         }
 
-        /// Gets the biggest x & biggest y of the area.
+        /// Gets the maximum x & biggest y of the area.
         pub fn get_to(&self) -> GlobalPosition {
-            self.to
+            self.max
+        }
+
+        /// Gets the minimum x & minimum y of the area.
+        pub fn get_min(&self) -> GlobalPosition {
+            self.min
+        }
+
+        /// Gets the maximum x & biggest y of the area.
+        pub fn get_max(&self) -> GlobalPosition {
+            self.max
+        }
+
+        /// A range from the minimum x to the maximum x (inclusive).
+        pub fn x_range(&self) -> std::ops::RangeInclusive<i32> {
+            self.get_min().get_x()..=self.get_max().get_x()
+        }
+
+        /// A range from the minimum y to the maximum y (inclusive).
+        pub fn y_range(&self) -> std::ops::RangeInclusive<i32> {
+            self.get_min().get_y()..=self.get_max().get_y()
+        }
+
+        /// Returns an iterator that iterates over all the x & y positions within this area.
+        ///
+        /// # Examples
+        /// ```rust
+        /// let area = Area::new((1, 1), (2, 2));
+        /// let mut iterate_over = area.iterate_over();
+        ///
+        /// assert_eq!(iterate_over.next().unwrap(), (1, 1));
+        /// assert_eq!(iterate_over.next().unwrap(), (2, 1));
+        /// assert_eq!(iterate_over.next().unwrap(), (1, 2));
+        /// assert_eq!(iterate_over.next().unwrap(), (2, 2));
+        /// assert!(iterate_over.next().is_none());
+        /// ```
+        pub fn iterate_over(&self) -> std::iter::FromFn<impl FnMut() -> Option<(i32, i32)>> {
+            let GlobalPosition { x: min_x, y: min_y } = self.get_from();
+            let GlobalPosition { x: max_x, y: max_y } = self.get_to();
+
+            let mut x_pos = min_x - 1;
+            let mut y_pos = min_y;
+            std::iter::from_fn(move || {
+                x_pos += 1;
+
+                if x_pos > max_x {
+                    x_pos = min_x;
+                    y_pos += 1;
+                }
+
+                if y_pos > max_y {
+                    return None;
+                }
+
+                Some((x_pos, y_pos))
+            })
         }
     }
 
@@ -313,6 +368,50 @@ mod types {
 
             assert_eq!(area.get_from(), (5, 5).into());
             assert_eq!(area.get_to(), (10, 10).into());
+        }
+
+        #[test]
+        /// The iterate over method will increase x then y.
+        fn iterate_over_positive() {
+            let area = Area::new((2, 2), (4, 4));
+
+            let mut iterate_over = area.iterate_over();
+            assert_eq!(iterate_over.next().unwrap(), (2, 2));
+            assert_eq!(iterate_over.next().unwrap(), (3, 2));
+            assert_eq!(iterate_over.next().unwrap(), (4, 2));
+            assert_eq!(iterate_over.next().unwrap(), (2, 3));
+            assert_eq!(iterate_over.next().unwrap(), (3, 3));
+            assert_eq!(iterate_over.next().unwrap(), (4, 3));
+            assert_eq!(iterate_over.next().unwrap(), (2, 4));
+            assert_eq!(iterate_over.next().unwrap(), (3, 4));
+            assert_eq!(iterate_over.next().unwrap(), (4, 4));
+            assert!(iterate_over.next().is_none());
+        }
+
+        #[test]
+        /// The iterate over method can handle mixed bounds.
+        fn iterate_over_mixed() {
+            let area = Area::new((-1, -2), (1, 0));
+
+            let mut iterate_over = area.iterate_over();
+            assert_eq!(iterate_over.next().unwrap(), (-1, -2));
+            assert_eq!(iterate_over.next().unwrap(), (0, -2));
+            assert_eq!(iterate_over.next().unwrap(), (1, -2));
+            assert_eq!(iterate_over.next().unwrap(), (-1, -1));
+            assert_eq!(iterate_over.next().unwrap(), (0, -1));
+            assert_eq!(iterate_over.next().unwrap(), (1, -1));
+            assert_eq!(iterate_over.next().unwrap(), (-1, 0));
+            assert_eq!(iterate_over.next().unwrap(), (0, 0));
+            assert_eq!(iterate_over.next().unwrap(), (1, 0));
+            assert!(iterate_over.next().is_none());
+
+            let area = Area::new((1, 1), (2, 2));
+            let mut iterate_over = area.iterate_over();
+            assert_eq!(iterate_over.next().unwrap(), (1, 1));
+            assert_eq!(iterate_over.next().unwrap(), (2, 1));
+            assert_eq!(iterate_over.next().unwrap(), (1, 2));
+            assert_eq!(iterate_over.next().unwrap(), (2, 2));
+            assert!(iterate_over.next().is_none());
         }
     }
 }
