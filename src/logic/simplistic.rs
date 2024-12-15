@@ -174,6 +174,11 @@ impl Simulator for Board {
     ) -> super::LoadStatus {
         todo!()
     }
+
+    fn clear(&mut self) {
+        self.board = HashSet::new();
+        self.generation = 0;
+    }
 }
 
 #[cfg(test)]

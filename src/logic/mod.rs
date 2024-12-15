@@ -86,6 +86,9 @@ pub trait Simulator {
         load_position: GlobalPosition,
         blueprint: BoardStore,
     ) -> LoadStatus;
+
+    /// Sets all cells on the board to dead.
+    fn clear(&mut self);
 }
 
 /// The data packets that the UI will send to the simulator.
