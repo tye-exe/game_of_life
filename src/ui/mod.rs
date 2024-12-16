@@ -1,6 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
-use egui::{Color32, Id, Painter, Rect};
+use egui::{pos2, Color32, Id, Painter, Rect};
 
 use crate::{
     error_text,
@@ -105,7 +105,7 @@ impl MyApp<'static> {
         ui_sender: UiSender,
         simulator_receiver: SimulatorReceiver,
     ) -> Self {
-        MyApp {
+        let my_app = MyApp {
             label: "Hello world",
             display_update: display,
             display_cache: Default::default(),
@@ -120,7 +120,40 @@ impl MyApp<'static> {
             x_offset: 0.0,
             y_offset: 0.0,
             display_area: Area::new((-10, -10), (10, 10)),
-        }
+        };
+
+        my_app
+            .ui_sender
+            .send(UiPacket::Set {
+                position: (0, 0).into(),
+                cell_state: crate::logic::Cell::Alive,
+            })
+            .unwrap();
+
+        my_app
+            .ui_sender
+            .send(UiPacket::Set {
+                position: (0, 1).into(),
+                cell_state: crate::logic::Cell::Alive,
+            })
+            .unwrap();
+
+        my_app
+            .ui_sender
+            .send(UiPacket::Set {
+                position: (0, 2).into(),
+                cell_state: crate::logic::Cell::Alive,
+            })
+            .unwrap();
+
+        my_app
+            .ui_sender
+            .send(UiPacket::DisplayArea {
+                new_area: my_app.display_area,
+            })
+            .unwrap();
+
+        my_app
     }
 }
 
@@ -160,6 +193,7 @@ impl eframe::App for MyApp<'static> {
                     ui.heading("Internal Values");
                     ui.label(format!(
                         "Error Occurred: {}\n\
+                        Display Area: {:?}\n\
                         X Offset: {}\n\
                         Y Offset: {}\n\
                         Cell Alive Colour: {:#?}\n\
@@ -169,6 +203,7 @@ impl eframe::App for MyApp<'static> {
                             Some(err) => format!("{:?}", err),
                             None => "No Error".to_owned(),
                         },
+                        self.display_area,
                         self.x_offset,
                         self.y_offset,
                         self.cell_alive_colour,
@@ -279,47 +314,119 @@ impl eframe::App for MyApp<'static> {
         // Reduces the board area to exclude the side panel
         *board_rect.right_mut() -= panel_size.x;
 
-        // Draws the board panel last, so that the available size to draw is known
-        // egui::CentralPanel::default().show(ctx, |ui| {
-        // Creates the painter once & reuses it
+        // Draws the central panel to provide the area for user interaction.
+        egui::CentralPanel::default().show(ctx, |ui| {
+            let interact = ui.interact(
+                board_rect.clone(),
+                Id::new("Board_Drag_Sense"),
+                egui::Sense::click_and_drag(),
+            );
+
+            // Scroll the display in response to user dragging mouse
+            if interact.dragged() {
+                let drag_delta = interact.drag_delta();
+                self.x_offset += drag_delta.x;
+                self.y_offset += drag_delta.y;
+
+                let mut modified_display = false;
+
+                // While loops are used as display can be dragged further than one cell in one frame.
+                while self.x_offset % self.cell_size > 0.0 {
+                    self.display_area.translate_x(-1);
+                    self.x_offset -= self.cell_size;
+                    modified_display = true;
+                }
+
+                while self.x_offset % self.cell_size < 0.0 {
+                    self.display_area.translate_x(1);
+                    self.x_offset += self.cell_size;
+                    modified_display = true;
+                }
+
+                while self.y_offset % self.cell_size > 0.0 {
+                    self.display_area.translate_y(-1);
+                    self.y_offset -= self.cell_size;
+                    modified_display = true;
+                }
+
+                while self.y_offset % self.cell_size < 0.0 {
+                    self.display_area.translate_y(1);
+                    self.y_offset += self.cell_size;
+                    modified_display = true;
+                }
+
+                if modified_display {
+                    to_send.push(UiPacket::DisplayArea {
+                        new_area: self.display_area,
+                    });
+                }
+            }
+
+            if interact.clicked() {
+                // Click logic
+            }
+        });
+
+        // Creates the painter for the board display.
         let layer_painter = Painter::new(
             ctx.clone(), // ctx is cloned in egui implementations.
             egui::LayerId::new(egui::Order::Background, BOARD_ID.into()),
             board_rect,
         );
 
-        use egui::{pos2, Rect, Rounding, Stroke};
+        // Iterator over number of x cells in board.
+        let x_cells = (board_rect.right() / self.cell_size).ceil() as i32;
+        // Create iterator of x origin for cells
+        let x_iter = (0..x_cells).map(|x| {
+            let mut x_cell = x as f32;
+            x_cell *= self.cell_size;
+            x_cell
+        });
 
-        let get_x = self.display_cache.get_x();
-        let get_y = self.display_cache.get_y();
+        // Iterator over number of x cells in board.
+        let y_cells = (board_rect.bottom() / self.cell_size).floor() as i32;
+        // Create iterator of x origin for cells
+        let y_iter = (0..y_cells).map(|y| {
+            let mut y_cell = y as f32;
+            y_cell *= self.cell_size;
+            y_cell
+        });
 
-        let cell_x = board_rect.x_range().span() / get_x.get() as f32;
-        let cell_y = board_rect.y_range().span() / get_y.get() as f32;
+        // Modify displayed area to follow cells displayed.
+        self.display_area
+            .modify_x(x_cells - self.display_area.x_difference());
+        self.display_area
+            .modify_y(y_cells - self.display_area.y_difference());
 
-        for x in 0..get_x.get() {
-            let x_pos = x as f32 * cell_x;
-
-            for y in 0..get_y.get() {
-                let y_pos = y as f32 * cell_y;
-                let rect =
-                    Rect::from_two_pos(pos2(x_pos, y_pos), pos2(x_pos + cell_x, y_pos + cell_y));
+        // Draw the display board.
+        for (x_index, x_origin) in x_iter.enumerate() {
+            for (y_index, y_origin) in y_iter.clone().enumerate() {
+                let rect = Rect::from_two_pos(
+                    pos2(x_origin as f32, y_origin as f32),
+                    pos2(
+                        x_origin as f32 + self.cell_size,
+                        y_origin as f32 + self.cell_size,
+                    ),
+                );
 
                 let rect = egui::epaint::RectShape::new(
                     rect,
-                    Rounding::ZERO,
+                    egui::Rounding::ZERO,
                     {
-                        match self.display_cache.get_cell((x as i32, y as i32)) {
+                        match self
+                            .display_cache
+                            .get_cell((x_index as i32 + 2, y_index as i32 + 2))
+                        {
                             crate::logic::Cell::Alive => self.cell_alive_colour,
                             crate::logic::Cell::Dead => self.cell_dead_colour,
                         }
                     },
-                    Stroke::new(1.0, Color32::GRAY),
+                    egui::Stroke::new(1.0, Color32::GRAY),
                 );
 
                 layer_painter.add(rect);
             }
         }
-        // });
 
         // Process fallible code //
 
@@ -349,6 +456,10 @@ impl eframe::App for MyApp<'static> {
                 return;
             }
         }
+
+        // If update is not requested the board will become outdated.
+        // This causes higher cpu usage, but only by one/two %.
+        ctx.request_repaint();
     }
 }
 
