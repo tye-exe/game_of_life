@@ -257,7 +257,7 @@ mod types {
     }
 
     /// A single wrapper struct around the two opposite corners of rectangle.
-    #[derive(Clone, Copy)]
+    #[derive(Clone, Copy, PartialEq)]
     #[cfg_attr(any(test, debug_assertions), derive(Debug))]
     pub struct Area {
         /// The min x & the min y position.
@@ -356,6 +356,32 @@ mod types {
 
                 Some((x_pos, y_pos))
             })
+        }
+
+        pub fn translate_x(&mut self, move_by: i32) {
+            self.min.x += move_by;
+            self.max.x += move_by;
+        }
+
+        pub fn translate_y(&mut self, move_by: i32) {
+            self.min.y += move_by;
+            self.max.y += move_by;
+        }
+
+        pub fn modify_x(&mut self, x_change: i32) {
+            self.max.x += x_change;
+        }
+
+        pub fn modify_y(&mut self, y_change: i32) {
+            self.max.y += y_change;
+        }
+
+        pub fn x_difference(&self) -> i32 {
+            self.max.x - self.min.x
+        }
+
+        pub fn y_difference(&self) -> i32 {
+            self.max.y - self.min.y
         }
     }
 
