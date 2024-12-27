@@ -1,5 +1,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
+use std::{
+    collections::VecDeque,
+    time::{Duration, Instant},
+};
+
 use egui::{pos2, Color32, Id, Painter, Rect};
 
 use crate::{
@@ -70,6 +75,9 @@ struct MyApp<'a> {
     /// Whether the debug window is open or not.
     #[cfg(debug_assertions)]
     debug_menu_open: bool,
+    /// Time since last frame.
+    #[cfg(debug_assertions)]
+    last_frame_time: Duration,
 
     /// Stores relevant information for unrecoverable errors.
     error_occurred: Option<ErrorData>,
@@ -120,6 +128,8 @@ impl MyApp<'static> {
             x_offset: 0.0,
             y_offset: 0.0,
             display_area: Area::new((-10, -10), (10, 10)),
+            #[cfg(debug_assertions)]
+            last_frame_time: Duration::new(0, 0),
         };
 
         my_app
@@ -155,70 +165,85 @@ impl MyApp<'static> {
 
         my_app
     }
-}
 
-impl eframe::App for MyApp<'static> {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let mut to_send = Vec::new();
+    /// Draws the debug window.
+    ///
+    /// This method only exists on debug builds.
+    #[cfg(debug_assertions)]
+    fn debug_window(&mut self, ctx: &egui::Context) {
+        egui::Window::new(DEBUG_WINDOW)
+            .open(&mut self.debug_menu_open)
+            .show(ctx, |ui| {
+                ui.heading("Errors");
+                ui.horizontal_top(|ui| {
+                    if ui
+                        .button("Cause error")
+                        .on_hover_text("Tests the unrecoverable error feature")
+                        .clicked()
+                    {
+                        self.error_occurred = Some(ErrorData::from_error(
+                            "Test error occurred! Remove it with the debug menu.",
+                        ));
+                    }
 
-        #[cfg(debug_assertions)]
-        {
-            egui::Window::new(DEBUG_WINDOW)
-                .open(&mut self.debug_menu_open)
-                .show(ctx, |ui| {
-                    ui.heading("Errors");
-                    ui.horizontal_top(|ui| {
-                        if ui
-                            .button("Cause error")
-                            .on_hover_text("Tests the unrecoverable error feature")
-                            .clicked()
-                        {
-                            self.error_occurred = Some(ErrorData::from_error(
-                                "Test error occurred! Remove it with the debug menu.",
-                            ));
-                        }
-
-                        if ui
-                            .button("Clear error")
-                            .on_hover_text(
-                                "Clears the current unrecoverable error\n⚠ Use with caution! ⚠",
-                            )
-                            .clicked()
-                        {
-                            self.error_occurred = None;
-                        }
-                    });
-                    // ui.add(egui::Separator::horizontal())
-                    ui.separator();
-                    ui.heading("Internal Values");
-                    ui.label(format!(
-                        "Error Occurred: {}\n\
+                    if ui
+                        .button("Clear error")
+                        .on_hover_text(
+                            "Clears the current unrecoverable error\n⚠ Use with caution! ⚠",
+                        )
+                        .clicked()
+                    {
+                        self.error_occurred = None;
+                    }
+                });
+                // ui.add(egui::Separator::horizontal())
+                ui.separator();
+                ui.heading("Internal Values");
+                ui.label(format!(
+                    "Error Occurred: {}\n\
                         Display Area: {:?}\n\
                         X Offset: {}\n\
                         Y Offset: {}\n\
                         Cell Alive Colour: {:#?}\n\
                         Cell Dead Colour: {:#?}\n\
                         Cell Size: {}",
-                        match &self.error_occurred {
-                            Some(err) => format!("{:?}", err),
-                            None => "No Error".to_owned(),
-                        },
-                        self.display_area,
-                        self.x_offset,
-                        self.y_offset,
-                        self.cell_alive_colour,
-                        self.cell_dead_colour,
-                        self.cell_size
-                    ));
-                    ui.label(format!(
-                        "Cursor Position: {}",
-                        match ctx.pointer_latest_pos() {
-                            Some(pos) => pos.to_string(),
-                            None => "Offscreen".to_owned(),
-                        },
-                    ));
-                });
-        }
+                    match &self.error_occurred {
+                        Some(err) => format!("{:?}", err),
+                        None => "No Error".to_owned(),
+                    },
+                    self.display_area,
+                    self.x_offset,
+                    self.y_offset,
+                    self.cell_alive_colour,
+                    self.cell_dead_colour,
+                    self.cell_size
+                ));
+                ui.label(format!(
+                    "Cursor Position: {}",
+                    match ctx.pointer_latest_pos() {
+                        Some(pos) => pos.to_string(),
+                        None => "Offscreen".to_owned(),
+                    },
+                ));
+
+                ui.separator();
+                let secs_f64 = self.last_frame_time.as_secs_f64();
+                if secs_f64.is_normal() {
+                    let fps = 1.0 / secs_f64;
+                    ui.label(fps.to_string());
+                }
+            });
+    }
+}
+
+impl eframe::App for MyApp<'static> {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        #[cfg(debug_assertions)]
+        let start_time = Instant::now();
+        #[cfg(debug_assertions)]
+        self.debug_window(ctx);
+
+        let mut to_send = Vec::new();
 
         if let Some(error_data) = &mut self.error_occurred {
             // Ensures the background is empty.
@@ -367,6 +392,38 @@ impl eframe::App for MyApp<'static> {
             }
         });
 
+        // let mut modified_display = false;
+
+        // if self.x_offset % self.cell_size > 0.0 {
+        //     self.display_area.translate_x(-1);
+        //     self.x_offset -= self.cell_size;
+        //     modified_display = true;
+        // }
+
+        // if self.x_offset % self.cell_size < 0.0 {
+        //     self.display_area.translate_x(1);
+        //     self.x_offset += self.cell_size;
+        //     modified_display = true;
+        // }
+
+        // if self.y_offset % self.cell_size > 0.0 {
+        //     self.display_area.translate_y(-1);
+        //     self.y_offset -= self.cell_size;
+        //     modified_display = true;
+        // }
+
+        // if self.y_offset % self.cell_size < 0.0 {
+        //     self.display_area.translate_y(1);
+        //     self.y_offset += self.cell_size;
+        //     modified_display = true;
+        // }
+
+        // if modified_display {
+        //     to_send.push(UiPacket::DisplayArea {
+        //         new_area: self.display_area,
+        //     });
+        // }
+
         // Creates the painter for the board display.
         let layer_painter = Painter::new(
             ctx.clone(), // ctx is cloned in egui implementations.
@@ -460,6 +517,13 @@ impl eframe::App for MyApp<'static> {
         // If update is not requested the board will become outdated.
         // This causes higher cpu usage, but only by one/two %.
         ctx.request_repaint();
+
+        // Time framerate
+        #[cfg(debug_assertions)]
+        {
+            let end_time = Instant::now();
+            self.last_frame_time = end_time - start_time;
+        }
     }
 }
 
