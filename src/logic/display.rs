@@ -61,7 +61,7 @@ impl BoardDisplay {
             .unwrap_or(unsafe { NonZeroUsize::new_unchecked(10) })
     }
 
-    /// Gets the cell at the given position.
+    /// Gets the cell at the given position **relative** to this [BoardDisplay].
     ///
     /// If the given position is outside the bounds of the display board then [`Cell::Dead`] will be returned.
     pub fn get_cell(&self, position: impl Into<GlobalPosition>) -> Cell {

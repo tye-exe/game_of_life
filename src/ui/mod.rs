@@ -339,6 +339,9 @@ impl eframe::App for MyApp<'static> {
         // Reduces the board area to exclude the side panel
         *board_rect.right_mut() -= panel_size.x;
 
+        // board_rect must not change after this point
+        let board_rect = board_rect;
+
         // Draws the central panel to provide the area for user interaction.
         egui::CentralPanel::default().show(ctx, |ui| {
             let interact = ui.interact(
@@ -387,42 +390,26 @@ impl eframe::App for MyApp<'static> {
                 }
             }
 
+            // Toggles the state of a cell when it is clicked.
             if interact.clicked() {
-                // Click logic
+                if let Some(position) = interact.interact_pointer_pos() {
+                    // Position of cell
+                    let cell_x = (position.x / self.cell_size).trunc() as i32;
+                    let cell_y = (position.y / self.cell_size).trunc() as i32;
+
+                    // Position of displayed board
+                    let origin_x = self.display_area.get_min().get_x();
+                    let origin_y = self.display_area.get_min().get_y();
+
+                    let position = GlobalPosition::new(cell_x + origin_x, cell_y + origin_y);
+                    let cell_state = self.display_cache.get_cell((cell_x, cell_y)).invert();
+                    to_send.push(UiPacket::Set {
+                        position,
+                        cell_state,
+                    });
+                }
             }
         });
-
-        // let mut modified_display = false;
-
-        // if self.x_offset % self.cell_size > 0.0 {
-        //     self.display_area.translate_x(-1);
-        //     self.x_offset -= self.cell_size;
-        //     modified_display = true;
-        // }
-
-        // if self.x_offset % self.cell_size < 0.0 {
-        //     self.display_area.translate_x(1);
-        //     self.x_offset += self.cell_size;
-        //     modified_display = true;
-        // }
-
-        // if self.y_offset % self.cell_size > 0.0 {
-        //     self.display_area.translate_y(-1);
-        //     self.y_offset -= self.cell_size;
-        //     modified_display = true;
-        // }
-
-        // if self.y_offset % self.cell_size < 0.0 {
-        //     self.display_area.translate_y(1);
-        //     self.y_offset += self.cell_size;
-        //     modified_display = true;
-        // }
-
-        // if modified_display {
-        //     to_send.push(UiPacket::DisplayArea {
-        //         new_area: self.display_area,
-        //     });
-        // }
 
         // Creates the painter for the board display.
         let layer_painter = Painter::new(
@@ -431,18 +418,18 @@ impl eframe::App for MyApp<'static> {
             board_rect,
         );
 
-        // Iterator over number of x cells in board.
+        // Number of cell in x axis
         let x_cells = (board_rect.right() / self.cell_size).ceil() as i32;
-        // Create iterator of x origin for cells
+        // Create iterator of x position for cells
         let x_iter = (0..x_cells).map(|x| {
             let mut x_cell = x as f32;
             x_cell *= self.cell_size;
             x_cell
         });
 
-        // Iterator over number of x cells in board.
+        // Number of cells in y axis
         let y_cells = (board_rect.bottom() / self.cell_size).floor() as i32;
-        // Create iterator of x origin for cells
+        // Create iterator of y position for cells
         let y_iter = (0..y_cells).map(|y| {
             let mut y_cell = y as f32;
             y_cell *= self.cell_size;
