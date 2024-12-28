@@ -472,7 +472,7 @@ impl eframe::App for MyApp<'static> {
                     {
                         match self
                             .display_cache
-                            .get_cell((x_index as i32 + 2, y_index as i32 + 2))
+                            .get_cell((x_index as i32, y_index as i32))
                         {
                             crate::logic::Cell::Alive => self.cell_alive_colour,
                             crate::logic::Cell::Dead => self.cell_dead_colour,
