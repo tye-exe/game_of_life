@@ -207,6 +207,16 @@ mod types {
         }
     }
 
+    impl Cell {
+        /// Returns the opposite of the current cell.
+        pub fn invert(self) -> Cell {
+            match self {
+                Cell::Alive => Cell::Dead,
+                Cell::Dead => Cell::Alive,
+            }
+        }
+    }
+
     /// The x & y positions of a [`Cell`] on the Conways game of life board.
     #[derive(Eq, Hash, PartialEq, Clone, Copy, Debug)]
     pub struct GlobalPosition {
