@@ -68,6 +68,33 @@ const RIGHT_PANEL: &str = "Right_Panel";
 #[cfg(debug_assertions)]
 const DEBUG_WINDOW: &str = "Debug_Window";
 
+/// Contains the persistent data for the app.
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
+#[serde(default)]
+struct Config {
+    /// The colour of alive cells.
+    cell_alive_colour: Color32,
+    /// The colour of dead cells.
+    cell_dead_colour: Color32,
+    /// The size of each cell.
+    cell_size: f32,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            cell_alive_colour: Color32::WHITE,
+            cell_dead_colour: Color32::BLACK,
+            cell_size: 15.0,
+        }
+    }
+}
+
+impl Config {
+    /// The key used for saving the configuration with [`eframe::set_value`] & [`eframe::get_value`]
+    const SAVE_KEY: &str = "game_of_life";
+}
+
 /// The struct that contains the data for the gui of my app.
 struct MyApp<'a> {
     label: &'a str,
@@ -98,28 +125,21 @@ struct MyApp<'a> {
     /// A channel to receive data from the simulator.
     simulator_receiver: SimulatorReceiver,
 
-    /// The colour of alive cells.
-    cell_alive_colour: Color32,
-    /// The colour of dead cells.
-    cell_dead_colour: Color32,
-    /// The size of each cell.
-    cell_size: f32,
+    /// Contains persistent configuration.
+    config: Config,
 }
 
 impl MyApp<'static> {
     pub fn new(
-        _creation_context: &eframe::CreationContext<'_>,
+        creation_context: &eframe::CreationContext<'_>,
         display: SharedDisplay,
         ui_sender: UiSender,
         simulator_receiver: SimulatorReceiver,
     ) -> Self {
-        let my_app = MyApp {
+        let mut my_app = MyApp {
             label: "Hello world",
             display_update: display,
             display_cache: Default::default(),
-            cell_alive_colour: Color32::WHITE,
-            cell_dead_colour: Color32::BLACK,
-            cell_size: 15.0,
             ui_sender,
             simulator_receiver,
             error_occurred: None,
@@ -130,7 +150,15 @@ impl MyApp<'static> {
             display_area: Area::new((-10, -10), (10, 10)),
             #[cfg(debug_assertions)]
             last_frame_time: Duration::new(0, 0),
+            config: Config::default(),
         };
+
+        // Load stored configurations
+        if let Some(storage) = creation_context.storage {
+            if let Some(config) = eframe::get_value(storage, Config::SAVE_KEY) {
+                my_app.config = config;
+            };
+        }
 
         my_app
             .ui_sender
@@ -214,9 +242,9 @@ impl MyApp<'static> {
                     self.display_area,
                     self.x_offset,
                     self.y_offset,
-                    self.cell_alive_colour,
-                    self.cell_dead_colour,
-                    self.cell_size
+                    self.config.cell_alive_colour,
+                    self.config.cell_dead_colour,
+                    self.config.cell_size
                 ));
                 ui.label(format!(
                     "Cursor Position: {}",
@@ -323,14 +351,14 @@ impl eframe::App for MyApp<'static> {
         let panel_size = egui::SidePanel::right(RIGHT_PANEL)
             .show(ctx, |ui| {
                 ui.add(
-                    egui::Slider::new(&mut self.cell_size, 4.0..=50.0)
+                    egui::Slider::new(&mut self.config.cell_size, 4.0..=50.0)
                         // The slider limits should just be suggestions for the user.
                         .clamping(egui::SliderClamping::Never)
                         .text(lang::CELL_SIZE_SLIDER),
                 );
                 // However the cells can't be smaller than one pixel as it does not
                 // make sense & destroys performance.
-                self.cell_size = self.cell_size.max(1.0);
+                self.config.cell_size = self.config.cell_size.max(1.0);
             })
             .response
             .rect
@@ -359,27 +387,27 @@ impl eframe::App for MyApp<'static> {
                 let mut modified_display = false;
 
                 // While loops are used as display can be dragged further than one cell in one frame.
-                while self.x_offset % self.cell_size > 0.0 {
+                while self.x_offset % self.config.cell_size > 0.0 {
                     self.display_area.translate_x(-1);
-                    self.x_offset -= self.cell_size;
+                    self.x_offset -= self.config.cell_size;
                     modified_display = true;
                 }
 
-                while self.x_offset % self.cell_size < 0.0 {
+                while self.x_offset % self.config.cell_size < 0.0 {
                     self.display_area.translate_x(1);
-                    self.x_offset += self.cell_size;
+                    self.x_offset += self.config.cell_size;
                     modified_display = true;
                 }
 
-                while self.y_offset % self.cell_size > 0.0 {
+                while self.y_offset % self.config.cell_size > 0.0 {
                     self.display_area.translate_y(-1);
-                    self.y_offset -= self.cell_size;
+                    self.y_offset -= self.config.cell_size;
                     modified_display = true;
                 }
 
-                while self.y_offset % self.cell_size < 0.0 {
+                while self.y_offset % self.config.cell_size < 0.0 {
                     self.display_area.translate_y(1);
-                    self.y_offset += self.cell_size;
+                    self.y_offset += self.config.cell_size;
                     modified_display = true;
                 }
 
@@ -394,8 +422,8 @@ impl eframe::App for MyApp<'static> {
             if interact.clicked() {
                 if let Some(position) = interact.interact_pointer_pos() {
                     // Position of cell
-                    let cell_x = (position.x / self.cell_size).trunc() as i32;
-                    let cell_y = (position.y / self.cell_size).trunc() as i32;
+                    let cell_x = (position.x / self.config.cell_size).trunc() as i32;
+                    let cell_y = (position.y / self.config.cell_size).trunc() as i32;
 
                     // Position of displayed board
                     let origin_x = self.display_area.get_min().get_x();
@@ -419,20 +447,20 @@ impl eframe::App for MyApp<'static> {
         );
 
         // Number of cell in x axis
-        let x_cells = (board_rect.right() / self.cell_size).ceil() as i32;
+        let x_cells = (board_rect.right() / self.config.cell_size).ceil() as i32;
         // Create iterator of x position for cells
         let x_iter = (0..x_cells).map(|x| {
             let mut x_cell = x as f32;
-            x_cell *= self.cell_size;
+            x_cell *= self.config.cell_size;
             x_cell
         });
 
         // Number of cells in y axis
-        let y_cells = (board_rect.bottom() / self.cell_size).floor() as i32;
+        let y_cells = (board_rect.bottom() / self.config.cell_size).floor() as i32;
         // Create iterator of y position for cells
         let y_iter = (0..y_cells).map(|y| {
             let mut y_cell = y as f32;
-            y_cell *= self.cell_size;
+            y_cell *= self.config.cell_size;
             y_cell
         });
 
@@ -448,8 +476,8 @@ impl eframe::App for MyApp<'static> {
                 let rect = Rect::from_two_pos(
                     pos2(x_origin as f32, y_origin as f32),
                     pos2(
-                        x_origin as f32 + self.cell_size,
-                        y_origin as f32 + self.cell_size,
+                        x_origin as f32 + self.config.cell_size,
+                        y_origin as f32 + self.config.cell_size,
                     ),
                 );
 
@@ -461,8 +489,8 @@ impl eframe::App for MyApp<'static> {
                             .display_cache
                             .get_cell((x_index as i32, y_index as i32))
                         {
-                            crate::logic::Cell::Alive => self.cell_alive_colour,
-                            crate::logic::Cell::Dead => self.cell_dead_colour,
+                            crate::logic::Cell::Alive => self.config.cell_alive_colour,
+                            crate::logic::Cell::Dead => self.config.cell_dead_colour,
                         }
                     },
                     egui::Stroke::new(1.0, Color32::GRAY),
@@ -511,6 +539,10 @@ impl eframe::App for MyApp<'static> {
             let end_time = Instant::now();
             self.last_frame_time = end_time - start_time;
         }
+    }
+
+    fn save(&mut self, storage: &mut dyn eframe::Storage) {
+        eframe::set_value(storage, Config::SAVE_KEY, &self.config);
     }
 }
 
