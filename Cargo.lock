@@ -918,6 +918,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "egui-keybind"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "68d862180c4077b9aa75e68241cbc5a1a2d3227b8fdc54b89231fc3764ace401"
+dependencies = [
+ "egui",
+ "serde",
+]
+
+[[package]]
 name = "egui-winit"
 version = "0.29.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1225,6 +1235,7 @@ dependencies = [
  "derive_more",
  "eframe",
  "egui",
+ "egui-keybind",
  "env_logger",
  "log",
  "serde",
