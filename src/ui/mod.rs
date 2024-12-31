@@ -341,26 +341,6 @@ impl eframe::App for MyApp<'static> {
         *board_rect.top_mut() += top_size.y;
         *board_rect.bottom_mut() += top_size.y;
 
-        // Draws the right side panel & gets the size of it.
-        let panel_size = egui::SidePanel::right(RIGHT_PANEL)
-            .show(ctx, |ui| {
-                ui.add(
-                    egui::Slider::new(&mut self.settings.cell.size, 4.0..=50.0)
-                        // The slider limits should just be suggestions for the user.
-                        .clamping(egui::SliderClamping::Never)
-                        .text(lang::SETTINGS_CELL_SIZE_SLIDER),
-                );
-                // However the cells can't be smaller than one pixel as it does not
-                // make sense & destroys performance.
-                self.settings.cell.size = self.settings.cell.size.max(1.0);
-            })
-            .response
-            .rect
-            .size();
-
-        // Reduces the board area to exclude the side panel
-        *board_rect.right_mut() -= panel_size.x;
-
         // board_rect must not change after this point
         let board_rect = board_rect;
 
