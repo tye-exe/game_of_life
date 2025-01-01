@@ -9,6 +9,7 @@ use crate::{
     },
 };
 use egui::{pos2, Color32, Id, Painter, Rect};
+use egui_keybind::Bind;
 use settings::{Settings, SettingsMenu};
 use std::time::{Duration, Instant};
 
@@ -17,7 +18,6 @@ mod lang {
 
     lang! {
         APP_NAME, "Game Of Life";
-        SETTINGS_CELL_SIZE_SLIDER, "Cell Size";
         UNRECOVERABLE_ERROR_HEADER, "Encountered Unrecoverable Error";
         ERROR_MESSAGE, "Error: ";
         ERROR_ADVICE, "Please restart the application.";
@@ -30,7 +30,9 @@ mod lang {
         SETTINGS_KEYBIND_HEADER, "Keybinds";
         SETTINGS_CELL_ALIVE_COLOUR, "Cell alive colour:";
         SETTINGS_CELL_DEAD_COLOUR, "Cell dead colour:";
-        SETTINGS_CELL_SIZE, "Cell size:"
+        SETTINGS_CELL_SIZE, "Cell size:";
+        SETTINGS_KEYBIND_SIMULATION_TOGGLE, "Toggle Simulation:";
+        SETTINGS_KEYBIND_SETTINGS_MENU_TOGGLE, "Toggle Settings Menu:"
     }
 }
 
@@ -246,6 +248,17 @@ impl MyApp<'static> {
                 }
             });
     }
+
+    /// Checks if any keybinds have been pressed & executes the corresponding action.
+    fn check_keybinds(&mut self, ctx: &egui::Context) {
+        let keybind = &mut self.settings.keybind;
+
+        ctx.input_mut(|input| {
+            if keybind.settings_menu.pressed(input) {
+                self.settings_menu.open = !self.settings_menu.open;
+            }
+        })
+    }
 }
 
 impl eframe::App for MyApp<'static> {
@@ -300,6 +313,8 @@ impl eframe::App for MyApp<'static> {
             // Don't perform any other actions as the application is in an invalid state.
             return;
         }
+
+        self.check_keybinds(ctx);
 
         // Stores the size the board will take up.
         let mut board_rect = Rect::from_min_max(

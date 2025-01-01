@@ -6,8 +6,9 @@ use egui_keybind::Shortcut;
 use super::{
     lang::{
         SETTINGS_CELL_ALIVE_COLOUR, SETTINGS_CELL_DEAD_COLOUR, SETTINGS_CELL_HEADER,
-        SETTINGS_CELL_SIZE, SETTINGS_CELL_SIZE_SLIDER, SETTINGS_CLOSE, SETTINGS_KEYBIND_HEADER,
-        SETTINGS_LABEL, SETTINGS_RESET,
+        SETTINGS_CELL_SIZE, SETTINGS_CLOSE, SETTINGS_KEYBIND_HEADER,
+        SETTINGS_KEYBIND_SETTINGS_MENU_TOGGLE, SETTINGS_KEYBIND_SIMULATION_TOGGLE, SETTINGS_LABEL,
+        SETTINGS_RESET,
     },
     SETTINGS_PANEL,
 };
@@ -43,22 +44,22 @@ impl Default for CellSettings {
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 #[serde(default)]
 pub(crate) struct KeybindSettings {
-    pub(crate) keybind_menu: Shortcut,
-    pub(crate) start_simulation: Shortcut,
+    pub(crate) settings_menu: Shortcut,
+    pub(crate) toggle_simulation: Shortcut,
 }
 
 impl Default for KeybindSettings {
     fn default() -> Self {
         Self {
-            keybind_menu: Shortcut::new(
+            settings_menu: Shortcut::new(
                 Some(KeyboardShortcut::new(
                     egui::Modifiers::CTRL | egui::Modifiers::SHIFT,
                     egui::Key::D,
                 )),
                 None,
             ),
-            start_simulation: Shortcut::new(
-                Some(KeyboardShortcut::new(egui::Modifiers::NONE, egui::Key::S)),
+            toggle_simulation: Shortcut::new(
+                Some(KeyboardShortcut::new(egui::Modifiers::NONE, egui::Key::P)),
                 None,
             ),
         }
@@ -165,8 +166,21 @@ impl Menu for SubMenu<Cell> {
 impl Menu for SubMenu<Keybinds> {
     fn draw(&mut self, settings: &mut Settings, ui: &mut egui::Ui) {
         egui::CollapsingHeader::new(SETTINGS_KEYBIND_HEADER).show(ui, |ui| {
-            // Test
-            ui.label("Hi, i'm a keybinds settings menu.")
+            ui.horizontal(|ui| {
+                ui.label(SETTINGS_KEYBIND_SETTINGS_MENU_TOGGLE);
+                ui.add(egui_keybind::Keybind::new(
+                    &mut settings.keybind.settings_menu,
+                    SETTINGS_KEYBIND_SETTINGS_MENU_TOGGLE,
+                ));
+            });
+
+            ui.horizontal(|ui| {
+                ui.label(SETTINGS_KEYBIND_SIMULATION_TOGGLE);
+                ui.add(egui_keybind::Keybind::new(
+                    &mut settings.keybind.toggle_simulation,
+                    SETTINGS_KEYBIND_SIMULATION_TOGGLE,
+                ));
+            });
         });
     }
 }
