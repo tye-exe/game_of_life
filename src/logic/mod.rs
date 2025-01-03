@@ -333,7 +333,7 @@ mod types {
             self.get_min().get_y()..=self.get_max().get_y()
         }
 
-        /// Returns an iterator that iterates over all the x & y positions within this area.
+        /// Returns an iterator that iterates over all the x & y positions within this area in the tuple format `(x, y)`.
         ///
         /// # Examples
         /// ```rust
@@ -346,7 +346,16 @@ mod types {
         /// assert_eq!(iterate_over.next().unwrap(), (2, 2));
         /// assert!(iterate_over.next().is_none());
         /// ```
-        pub fn iterate_over(&self) -> std::iter::FromFn<impl FnMut() -> Option<(i32, i32)>> {
+        ///
+        /// When the difference between min x/y & max x/y is 0, the tiles at that axis will still be iterated over.
+        /// ```rust
+        /// let area = Area::new((1, 1), (1, 1));
+        /// let mut iterate_over = area.iterate_over();
+        ///
+        /// assert_eq!(iterate_over.next().unwrap(), (1, 1));
+        /// assert!(iterate_over.next().is_none());
+        /// ```
+        pub fn iterate_over(&self) -> impl Iterator<Item = (i32, i32)> {
             let GlobalPosition { x: min_x, y: min_y } = self.get_from();
             let GlobalPosition { x: max_x, y: max_y } = self.get_to();
 
@@ -443,13 +452,21 @@ mod types {
             assert_eq!(iterate_over.next().unwrap(), (0, 0));
             assert_eq!(iterate_over.next().unwrap(), (1, 0));
             assert!(iterate_over.next().is_none());
+        }
 
-            let area = Area::new((1, 1), (2, 2));
-            let mut iterate_over = area.iterate_over();
-            assert_eq!(iterate_over.next().unwrap(), (1, 1));
-            assert_eq!(iterate_over.next().unwrap(), (2, 1));
-            assert_eq!(iterate_over.next().unwrap(), (1, 2));
-            assert_eq!(iterate_over.next().unwrap(), (2, 2));
+        #[test]
+        /// The smallestet area (zero difference between min & max) still represents one tile.
+        fn area_cannot_be_zero_sized() {
+            // Test positive area.
+            let positive_area = Area::new((0, 0), (0, 0));
+            let mut iterate_over = positive_area.iterate_over();
+            assert_eq!(iterate_over.next().unwrap(), (0, 0));
+            assert!(iterate_over.next().is_none());
+
+            // Test negative area.
+            let negative_area = Area::new((-1, -1), (-1, -1));
+            let mut iterate_over = negative_area.iterate_over();
+            assert_eq!(iterate_over.next().unwrap(), (-1, -1));
             assert!(iterate_over.next().is_none());
         }
     }
