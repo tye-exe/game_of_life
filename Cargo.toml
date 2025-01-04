@@ -25,6 +25,7 @@ derive_more = { version = "1.0.0", features = ["full"] }
 spin_sleep_util = "0.1.1"
 egui-keybind = { version = "0.4.1", features = ["serde"] }
 bitvec = { version = "1.0.1", features = ["serde"] }
+app_dirs2 = "2.5.5"
 
 [dev-dependencies]
 ctor = "0.2.8"

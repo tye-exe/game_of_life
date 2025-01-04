@@ -1,5 +1,6 @@
 use std::{error::Error, path::PathBuf, sync::LazyLock, thread, time::Duration};
 
+use app_dirs2::{get_app_dir, get_app_root, AppDataType, AppInfo};
 use logic::{SharedDisplay, Simulator, SimulatorPacket};
 
 mod logic;
@@ -7,6 +8,8 @@ mod ui;
 
 fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init();
+
+    init_directories().inspect_err(|_| eprintln!("{}", error_text::DIRECTORY_CREATION))?;
 
     let display: SharedDisplay = Default::default();
 
@@ -137,6 +140,62 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // The retuned error does not implement the Error trait so panic instead.
     simulator_thread.join().expect(error_text::SIM_THREAD_TERM);
+
+    Ok(())
+}
+
+pub const APP_INFO: AppInfo = AppInfo {
+    name: "game_of_life-tye",
+    author: "tye",
+};
+
+/// The path to where user configuration will be stored.
+/// This path is guaranteed to exist.
+///
+/// On Linux:
+/// `/home/<user>/.config/game_of_life`
+static USER_CONFIG_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
+    // The only way this can error is if the APP_INFO has empty fields.
+    get_app_root(AppDataType::UserConfig, &APP_INFO).unwrap()
+});
+
+/// The path to where user data will be stored.
+/// This path is guaranteed to exist.
+///
+/// On Linux:
+/// `/home/<user>/.local/share/game_of_life`
+static USER_DATA_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
+    // The only way this can error is if the APP_INFO has empty fields.
+    get_app_root(AppDataType::UserData, &APP_INFO).unwrap()
+});
+
+/// The path to where board saves will be stored.
+/// This path is guaranteed to exist.
+///
+/// On Linux:
+/// `/home/<user>/.local/share/game_of_life/saves`
+static USER_SAVE_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
+    // The only way this can error is if the APP_INFO has empty fields.
+    get_app_dir(AppDataType::UserData, &APP_INFO, "saves").unwrap()
+});
+
+/// The path to where blueprints will be stored.
+/// This path is guaranteed to exist.
+///
+/// On Linux:
+/// `/home/<user>/.local/share/game_of_life/blueprints`
+static USER_BLUEPRINT_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
+    // The only way this can error is if the APP_INFO has empty fields.
+    get_app_dir(AppDataType::UserData, &APP_INFO, "blueprints").unwrap()
+});
+
+/// Creates the directories used by this application.
+fn init_directories() -> Result<(), std::io::Error> {
+    std::fs::create_dir_all(USER_CONFIG_PATH.as_path())?;
+    std::fs::create_dir_all(USER_DATA_PATH.as_path())?;
+    std::fs::create_dir_all(USER_SAVE_PATH.as_path())?;
+    std::fs::create_dir_all(USER_BLUEPRINT_PATH.as_path())?;
+    Ok(())
 }
 
 /// Creates a public constant string with the name as the name of the constant
@@ -162,6 +221,7 @@ pub mod error_text {
         CREATE_SIMULATION_THREAD, "Unable to create thread for board simulation at OS level.";
         UI_INIT, "Unable to initialis UI graphical context.";
         SIM_THREAD_TERM, "Simulator thread was unable to gracefully terminate";
-        COMMAND_SIM_THREAD_TERM, "Unable to command similator thread to terminate."
+        COMMAND_SIM_THREAD_TERM, "Unable to command similator thread to terminate.";
+        DIRECTORY_CREATION, "Unable to created required directory for this program to run."
     }
 }
