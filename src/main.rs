@@ -1,11 +1,11 @@
-use std::{thread, time::Duration};
+use std::{error::Error, path::PathBuf, sync::LazyLock, thread, time::Duration};
 
 use logic::{SharedDisplay, Simulator, SimulatorPacket};
 
 mod logic;
 mod ui;
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init();
 
     let display: SharedDisplay = Default::default();
@@ -128,11 +128,14 @@ fn main() {
             }
         });
 
-    let simulator_thread = simulator_thread.expect(error_text::CREATE_SIMULATION_THREAD);
+    let simulator_thread =
+        simulator_thread.inspect_err(|_| eprintln!("{}", error_text::CREATE_SIMULATION_THREAD))?;
 
     // The ui has to run on the main thread for compatibility purposes.
-    ui::ui_init(display, ui_sender, simulator_receiver).expect(error_text::UI_INIT);
+    ui::ui_init(display, ui_sender, simulator_receiver)
+        .inspect_err(|_| eprintln!("{}", error_text::UI_INIT))?;
 
+    // The retuned error does not implement the Error trait so panic instead.
     simulator_thread.join().expect(error_text::SIM_THREAD_TERM);
 }
 
