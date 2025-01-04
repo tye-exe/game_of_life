@@ -67,8 +67,7 @@ fn main() {
                             send_packet(SimulatorPacket::BoardSave { board });
                         }
                         logic::UiPacket::LoadBoard { board: new_board } => {
-                            let status = board.load_board(new_board);
-                            send_packet(SimulatorPacket::BoardLoadResult { status });
+                            board.load_board(new_board);
                             display_needs_updating = true;
                         }
                         logic::UiPacket::SaveBlueprint { area } => {
@@ -79,8 +78,7 @@ fn main() {
                             load_position,
                             blueprint,
                         } => {
-                            let status = board.load_blueprint(load_position, blueprint);
-                            send_packet(SimulatorPacket::BlueprintLoadResult { status });
+                            board.load_blueprint(load_position, blueprint);
                             display_needs_updating = true;
                         }
                         logic::UiPacket::Start => is_running = true,

@@ -1,5 +1,6 @@
 //! Contains the essential data types & all [`Simulator`] implementations.
 
+use board_data::{SimulationBlueprint, SimulationSave};
 pub use display::BoardDisplay;
 use std::{
     num::NonZeroU32,
@@ -7,6 +8,7 @@ use std::{
 };
 pub use types::{Area, Cell, GlobalPosition};
 
+pub mod board_data;
 mod display;
 
 /// A simplistic implementation of [`Simulator`].
@@ -67,28 +69,69 @@ pub trait Simulator {
     /// Gets the current generation of simulation.
     fn get_generation(&self) -> u64;
 
-    /// Outputs the entire board as a [`BoardStore`].
-    fn save_board(&self) -> BoardStore;
+    /// Sets the current generation of simulation.
+    fn set_generation(&mut self, generation: u64);
 
-    /// Attempts to load a new board.
-    ///
-    /// The result of this attempt will be returned as a [`LoadStatus`].
-    fn load_board(&mut self, board: BoardStore) -> LoadStatus;
+    /// Sets all cells on the board to dead & sets the generation to 0.
+    fn reset(&mut self);
 
-    /// Outputs an area of the board as a [`BoardStore`].
-    fn save_blueprint(&self, area: Area) -> BoardStore;
+    /// Gets the area taken up by the current board. The area for a board is a rectangle bounding the alive cells.
+    fn get_board_area(&self) -> Area;
 
-    /// Attempts to load a blueprint at the given position. The given position will be the top left of the loaded blueprint.
-    ///
-    /// The result of this attempt will be returned as a [`LoadStatus`].
-    fn load_blueprint(
-        &mut self,
-        load_position: GlobalPosition,
-        blueprint: BoardStore,
-    ) -> LoadStatus;
+    /// Creates a save of the board in its current state.
+    fn save_board(&self) -> SimulationSave {
+        let board_area = self.get_board_area();
 
-    /// Sets all cells on the board to dead.
-    fn clear(&mut self);
+        let mut board_data = bitvec::vec::BitVec::new();
+        for position in board_area.iterate_over() {
+            board_data.push(self.get(position.into()).into());
+        }
+
+        SimulationSave::new(self.get_generation(), board_area, board_data)
+    }
+
+    /// Disgards the current state of the board & overwrites it with the given save.
+    fn load_board(&mut self, board: SimulationSave) {
+        let SimulationSave {
+            generation,
+            board_area,
+            board_data,
+        } = board;
+        self.reset();
+
+        self.set_generation(generation);
+        for (position, cell) in board_area.iterate_over().zip(board_data.into_iter()) {
+            self.set(position.into(), cell.into());
+        }
+    }
+
+    /// Creates a save of the given area of the board.
+    fn save_blueprint(&self, area: Area) -> SimulationBlueprint {
+        let mut blueprint_data = bitvec::vec::BitVec::new();
+        for position in area.iterate_over() {
+            blueprint_data.push(self.get(position.into()).into());
+        }
+
+        SimulationBlueprint::new(area.x_difference(), area.y_difference(), blueprint_data)
+    }
+
+    /// Overwrites an area of the board with the blueprint. The given position is the "top-left" of the blueprint that
+    /// will be loaded in.
+    fn load_blueprint(&mut self, load_position: GlobalPosition, blueprint: SimulationBlueprint) {
+        let SimulationBlueprint {
+            x_size,
+            y_size,
+            blueprint_data,
+        } = blueprint;
+
+        let mut area = Area::new((0, 0), (x_size, y_size));
+        area.translate_x(load_position.get_x());
+        area.translate_y(load_position.get_y());
+
+        for (position, cell) in area.iterate_over().zip(blueprint_data.into_iter()) {
+            self.set(position.into(), cell.into());
+        }
+    }
 }
 
 /// The data packets that the UI will send to the simulator.
@@ -109,7 +152,7 @@ pub enum UiPacket {
     /// Sends a board to the simulation for it to simulate.
     LoadBoard {
         /// The board state to load.
-        board: BoardStore,
+        board: SimulationSave,
     },
 
     /// Requests for the simulation to send a save of a portion of the current board to the ui for handling.
@@ -123,7 +166,7 @@ pub enum UiPacket {
         /// The blueprint will be loaded with this position as the top left.
         load_position: GlobalPosition,
         /// The blueprint to load.
-        blueprint: BoardStore,
+        blueprint: SimulationBlueprint,
     },
 
     /// Starts the simulation.
@@ -145,29 +188,17 @@ pub enum UiPacket {
 #[cfg_attr(any(test, debug_assertions), derive(Debug))]
 pub enum SimulatorPacket {
     /// A save of the boards current state.
-    BoardSave { board: BoardStore },
-    /// The result of attempting to load a board.
-    BoardLoadResult { status: LoadStatus },
+    BoardSave { board: SimulationSave },
 
     /// A save of a portion of the board.
-    BlueprintSave { blueprint: BoardStore },
-    /// The result of attempting to load a blueprint.
-    BlueprintLoadResult { status: LoadStatus },
-}
-
-#[cfg_attr(any(test, debug_assertions), derive(Debug))]
-pub struct BoardStore {}
-
-#[cfg_attr(any(test, debug_assertions), derive(Debug))]
-pub enum LoadStatus {
-    Success,
-    Fail,
+    BlueprintSave { blueprint: SimulationBlueprint },
 }
 
 #[cfg_attr(any(test, debug_assertions), derive(Debug))]
 pub struct SimulationSpeed {
     ticks_per_second: Option<NonZeroU32>,
 }
+
 impl SimulationSpeed {
     pub const UNCAPPED: Self = {
         Self {
@@ -239,7 +270,11 @@ mod types {
     }
 
     /// The x & y positions of a [`Cell`] on the Conways game of life board.
-    #[derive(Eq, Hash, PartialEq, Clone, Copy, Debug)]
+    ///
+    /// To move "right" on the board, the x must be increased.
+    /// To move "down" on the board, the y must be increased.
+    /// The opposites also apply.
+    #[derive(Eq, Hash, PartialEq, Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
     pub struct GlobalPosition {
         x: i32,
         y: i32,
@@ -288,7 +323,7 @@ mod types {
     }
 
     /// A single wrapper struct around the two opposite corners of rectangle.
-    #[derive(Clone, Copy, PartialEq)]
+    #[derive(Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
     #[cfg_attr(any(test, debug_assertions), derive(Debug))]
     pub struct Area {
         /// The min x & the min y position.

@@ -172,34 +172,54 @@ impl Simulator for Board {
         self.generation
     }
 
-    fn save_board(&self) -> super::BoardStore {
-        todo!()
-    }
-
-    fn load_board(&mut self, board: super::BoardStore) -> super::LoadStatus {
-        todo!()
-    }
-
-    fn save_blueprint(&self, area: Area) -> super::BoardStore {
-        todo!()
-    }
-
-    fn load_blueprint(
-        &mut self,
-        load_position: GlobalPosition,
-        blueprint: super::BoardStore,
-    ) -> super::LoadStatus {
-        todo!()
-    }
-
-    fn clear(&mut self) {
+    fn reset(&mut self) {
         self.board = HashSet::new();
         self.generation = 0;
+    }
+
+    fn get_board_area(&self) -> Area {
+        let top_left = self
+            .board
+            .iter()
+            .fold(GlobalPosition::new(0, 0), |mut corner, position| {
+                if position.get_x() > corner.get_x() {
+                    corner = GlobalPosition::new(position.get_x(), corner.get_y());
+                }
+                if position.get_y() > corner.get_y() {
+                    corner = GlobalPosition::new(corner.get_x(), position.get_y());
+                }
+
+                corner
+            });
+
+        let bottom_right =
+            self.board
+                .iter()
+                .fold(GlobalPosition::new(0, 0), |mut corner, position| {
+                    if position.get_x() < corner.get_x() {
+                        corner = GlobalPosition::new(position.get_x(), corner.get_y());
+                    }
+                    if position.get_y() < corner.get_y() {
+                        corner = GlobalPosition::new(corner.get_x(), position.get_y());
+                    }
+
+                    corner
+                });
+
+        Area::new(top_left, bottom_right)
+    }
+
+    fn set_generation(&mut self, generation: u64) {
+        self.generation = generation;
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use bitvec::vec::BitVec;
+
+    use crate::logic::SimulationSave;
+
     use super::*;
 
     #[test]
@@ -310,8 +330,8 @@ mod tests {
     }
 
     #[test]
-    /// Clear must remove any alive cells from board
-    fn clear() {
+    /// reset must remove all alive cells from board & set the generation to 0.
+    fn reset() {
         let display: SharedDisplay = Default::default();
         let mut board = Board::new(display.clone());
 
@@ -320,14 +340,14 @@ mod tests {
             board.set(position.into(), Cell::Alive);
         }
 
-        board.clear();
+        board.reset();
 
-        // Test clear
+        // Test reset
         for position in Area::new((-100, -100), (100, 100)).iterate_over() {
             assert_eq!(
                 board.get(position.into()),
                 Cell::Dead,
-                "Cell at {position:?} is alive. All cells must be dead after board clear"
+                "Cell at {position:?} is alive. All cells must be dead after board reset"
             );
         }
     }
@@ -452,7 +472,7 @@ mod tests {
                 );
 
                 // Remove remenatns
-                board.clear();
+                board.reset();
             }
         }
     }
@@ -485,7 +505,7 @@ mod tests {
                 );
 
                 // Remove remenatns
-                board.clear();
+                board.reset();
             }
         }
     }
@@ -523,7 +543,7 @@ mod tests {
                     );
 
                     // Remove remenatns
-                    board.clear();
+                    board.reset();
                 }
             }
         }
@@ -562,7 +582,7 @@ mod tests {
                     );
 
                     // Remove remenatns
-                    board.clear();
+                    board.reset();
                 }
             }
         }
@@ -610,7 +630,7 @@ mod tests {
                     );
 
                         // Remove remenatns
-                        board.clear();
+                        board.reset();
                     }
                 }
             }
@@ -659,7 +679,7 @@ mod tests {
                     );
 
                         // Remove remenatns
-                        board.clear();
+                        board.reset();
                     }
                 }
             }
@@ -703,7 +723,7 @@ mod tests {
                     );
 
                     // Remove remenatns
-                    board.clear();
+                    board.reset();
                 }
             }
         }
@@ -747,7 +767,7 @@ mod tests {
                     );
 
                     // Remove remenatns
-                    board.clear();
+                    board.reset();
                 }
             }
         }
@@ -785,7 +805,7 @@ mod tests {
                 );
 
                 // Remove remenatns
-                board.clear();
+                board.reset();
             }
         }
     }
@@ -823,7 +843,7 @@ mod tests {
                 );
 
                 // Remove remenatns
-                board.clear();
+                board.reset();
             }
         }
     }
@@ -855,7 +875,7 @@ mod tests {
             );
 
             // Remove remenatns
-            board.clear();
+            board.reset();
         }
     }
 
@@ -887,7 +907,7 @@ mod tests {
             );
 
             // Remove remenatns
-            board.clear();
+            board.reset();
         }
     }
 
@@ -911,7 +931,7 @@ mod tests {
         );
 
         // Remove remenatns
-        board.clear();
+        board.reset();
     }
 
     #[test]
@@ -936,7 +956,7 @@ mod tests {
         );
 
         // Remove remenatns
-        board.clear();
+        board.reset();
     }
 
     #[test]
@@ -976,5 +996,202 @@ mod tests {
                 assert_eq!(found, expected)
             }
         }
+    }
+
+    #[test]
+    /// Correctly loads empty board.
+    fn load_board_empty() {
+        // Generate board with alive cells.
+        let mut board = Board::new(Default::default());
+        for position in Area::new((-10, -10), (10, 10)).iterate_over() {
+            board.set(position.into(), Cell::Alive);
+        }
+
+        // Load empty board.
+        let generation = 0;
+        let area = Area::new((-4, -6), (4, 6));
+        let board_data = BitVec::new();
+        let simulation_save = SimulationSave::new(generation, area, board_data);
+        board.load_board(simulation_save);
+
+        assert_eq!(
+            board.get((8, 8).into()),
+            Cell::Dead,
+            "Cells outside the new board area must be set to dead."
+        );
+
+        for position in area.iterate_over() {
+            assert_eq!(
+                board.get(position.into()),
+                Cell::Dead,
+                "Cell at {position:?} must be dead as loaded board only contained dead cells."
+            )
+        }
+    }
+
+    #[test]
+    /// Correctly loads full board.
+    fn load_board_full() {
+        let mut board = Board::new(Default::default());
+
+        // Load full board.
+        let generation = 0;
+        let area = Area::new((-4, -6), (4, 6));
+        let mut board_data = BitVec::new();
+        for _ in area.iterate_over() {
+            board_data.push(Cell::Alive.into());
+        }
+
+        let simulation_save = SimulationSave::new(generation, area, board_data);
+        board.load_board(simulation_save);
+
+        assert_eq!(
+            board.get((8, 8).into()),
+            Cell::Dead,
+            "Cells outside the new board area must be set to dead."
+        );
+
+        for position in area.iterate_over() {
+            assert_eq!(
+                board.get(position.into()),
+                Cell::Alive,
+                "Cell at {position:?} must be alive as loaded board only contained alive cells."
+            )
+        }
+    }
+
+    #[test]
+    /// Correctly loads mixed board.
+    fn load_board_mixed() {
+        let mut board = Board::new(Default::default());
+
+        // Load mixed board.
+        let generation = 0;
+        let area = Area::new((-4, -6), (4, 6));
+        let mut board_data = BitVec::new();
+        for (_, cell) in area.iterate_over().zip(generate_cell_iterator()) {
+            board_data.push(cell.into());
+        }
+
+        let simulation_save = SimulationSave::new(generation, area, board_data);
+        board.load_board(simulation_save);
+
+        assert_eq!(
+            board.get((8, 8).into()),
+            Cell::Dead,
+            "Cells outside the new board area must be set to dead."
+        );
+
+        for (position, cell) in area.iterate_over().zip(generate_cell_iterator()) {
+            assert_eq!(
+                board.get(position.into()),
+                cell,
+                "Cell at {position:?} must be {cell:?} as loaded board had this cell in this state."
+            )
+        }
+    }
+
+    #[test]
+    /// Correctly saves empty board.
+    fn save_board_empty() {
+        let board = Board::new(Default::default());
+
+        let generation = 0;
+        let board_area = Area::new((0, 0), (0, 0));
+        let mut board_data = BitVec::new();
+        for _ in board_area.iterate_over() {
+            board_data.push(Cell::Dead.into());
+        }
+
+        let expected_save = SimulationSave::new(generation, board_area, board_data);
+        let save_board = board.save_board();
+
+        assert_eq!(save_board, expected_save);
+    }
+
+    #[test]
+    /// Correctly saves full board area.
+    fn save_board_full_area() {
+        let mut board = Board::new(Default::default());
+        let board_area = Area::new((-6, -6), (5, 5));
+
+        for position in board_area.iterate_over() {
+            board.set(position.into(), Cell::Alive);
+        }
+        let save_board = board.save_board();
+
+        let generation = 0;
+        let mut board_data = BitVec::new();
+        for _ in board_area.iterate_over() {
+            board_data.push(Cell::Alive.into());
+        }
+        let expected_save = SimulationSave::new(generation, board_area, board_data);
+
+        assert_eq!(save_board, expected_save);
+    }
+
+    #[test]
+    /// Correctly saves mixed board area.
+    fn save_board_mixed() {
+        let mut board = Board::new(Default::default());
+        let board_area = Area::new((-6, -6), (5, 5));
+
+        for (position, cell) in board_area.iterate_over().zip(generate_cell_iterator()) {
+            board.set(position.into(), cell);
+        }
+        let save_board = board.save_board();
+
+        let generation = 0;
+        let mut board_data = BitVec::new();
+        for ((x, _), cell) in board_area.iterate_over().zip(generate_cell_iterator()) {
+            // The last tile in each row is cut off due to it being empty.
+            // This is intended.
+            if x == 5 {
+                continue;
+            }
+
+            board_data.push(cell.into());
+        }
+        // Compensate for last tile being cut off in each row.
+        let board_area = Area::new((-6, -6), (4, 5));
+        let expected_save = SimulationSave::new(generation, board_area, board_data);
+
+        assert_eq!(save_board, expected_save);
+    }
+
+    #[test]
+    /// `set_generation()` correctly sets the generation.
+    fn set_generation() {
+        let mut board = Board::new(Default::default());
+        board.set_generation(100);
+        assert_eq!(board.get_generation(), 100);
+    }
+
+    #[test]
+    /// Getting the board area of a filled area will return the filled area.
+    fn get_board_area_full() {
+        let mut board = Board::new(Default::default());
+
+        let area = Area::new((-2, -2), (3, 4));
+        for position in area.iterate_over() {
+            board.set(position.into(), Cell::Alive);
+        }
+
+        assert_eq!(board.get_board_area(), area)
+    }
+
+    #[test]
+    /// The board area will included separate cells.
+    fn get_board_area_partial() {
+        let mut board = Board::new(Default::default());
+
+        let area = Area::new((0, 0), (4, 4));
+        for position in area.iterate_over() {
+            board.set(position.into(), Cell::Alive);
+        }
+
+        board.set((4, 6).into(), Cell::Alive);
+
+        assert_eq!(board.get_board_area(), Area::new((0, 0), (4, 6)));
     }
 }
