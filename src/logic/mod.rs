@@ -195,6 +195,9 @@ impl SimulationSpeed {
 /// to use the public interface provided by the data types.
 mod types {
     /// Represents the state of a cell within the Conways game of life simulation.
+    ///
+    /// An alive cell is represented as `true`.
+    /// A dead cell is represented as `false`.
     #[derive(PartialEq, Debug, Clone, Copy)]
     pub enum Cell {
         Alive,
@@ -204,6 +207,24 @@ mod types {
     impl Default for Cell {
         fn default() -> Self {
             Cell::Dead
+        }
+    }
+
+    impl From<Cell> for bool {
+        fn from(value: Cell) -> Self {
+            match value {
+                Cell::Alive => true,
+                Cell::Dead => false,
+            }
+        }
+    }
+
+    impl From<bool> for Cell {
+        fn from(value: bool) -> Self {
+            match value {
+                true => Cell::Alive,
+                false => Cell::Dead,
+            }
         }
     }
 
