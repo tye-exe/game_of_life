@@ -337,7 +337,7 @@ mod tests {
 
         // Populate board
         for position in Area::new((-100, -100), (100, 100)).iterate_over() {
-            board.set(position.into(), Cell::Alive);
+            board.set(position, Cell::Alive);
         }
 
         board.reset();
@@ -345,7 +345,7 @@ mod tests {
         // Test reset
         for position in Area::new((-100, -100), (100, 100)).iterate_over() {
             assert_eq!(
-                board.get(position.into()),
+                board.get(position),
                 Cell::Dead,
                 "Cell at {position:?} is alive. All cells must be dead after board reset"
             );
@@ -403,12 +403,12 @@ mod tests {
         let mut board = Board::new(display.clone());
 
         for position in Area::new((0, 0), (2, 2)).iterate_over() {
-            if position == (1, 1) {
+            if position == (1, 1).into() {
                 continue;
             }
 
             board.set((1, 1).into(), Cell::Alive);
-            board.set(position.into(), Cell::Alive);
+            board.set(position, Cell::Alive);
 
             // Tick & test
             board.tick();
@@ -427,12 +427,12 @@ mod tests {
         let mut board = Board::new(display.clone());
 
         for position in Area::new((0, 0), (2, 2)).iterate_over() {
-            if position == (1, 1) {
+            if position == (1, 1).into() {
                 continue;
             }
 
             board.set((1, 1).into(), Cell::Alive);
-            board.set(position.into(), Cell::Alive);
+            board.set(position, Cell::Alive);
 
             // Tick & test
             board.tick();
@@ -451,11 +451,11 @@ mod tests {
         let mut board = Board::new(display.clone());
 
         for cell_a in Area::new((0, 0), (2, 2)).iterate_over() {
-            if cell_a == (1, 1) {
+            if cell_a == (1, 1).into() {
                 continue;
             }
             for cell_b in Area::new((0, 0), (2, 2)).iterate_over() {
-                if cell_b == (1, 1) || cell_b == cell_a {
+                if cell_b == (1, 1).into() || cell_b == cell_a {
                     continue;
                 }
 
@@ -484,11 +484,11 @@ mod tests {
         let mut board = Board::new(display.clone());
 
         for cell_a in Area::new((0, 0), (2, 2)).iterate_over() {
-            if cell_a == (1, 1) {
+            if cell_a == (1, 1).into() {
                 continue;
             }
             for cell_b in Area::new((0, 0), (2, 2)).iterate_over() {
-                if cell_b == (1, 1) || cell_b == cell_a {
+                if cell_b == (1, 1).into() || cell_b == cell_a {
                     continue;
                 }
 
@@ -517,15 +517,15 @@ mod tests {
         let mut board = Board::new(display.clone());
 
         for cell_a in Area::new((0, 0), (2, 2)).iterate_over() {
-            if cell_a == (1, 1) {
+            if cell_a == (1, 1).into() {
                 continue;
             }
             for cell_b in Area::new((0, 0), (2, 2)).iterate_over() {
-                if cell_b == (1, 1) || cell_b == cell_a {
+                if cell_b == (1, 1).into() || cell_b == cell_a {
                     continue;
                 }
                 for cell_c in Area::new((0, 0), (2, 2)).iterate_over() {
-                    if cell_c == (1, 1) || cell_c == cell_a || cell_c == cell_b {
+                    if cell_c == (1, 1).into() || cell_c == cell_a || cell_c == cell_b {
                         continue;
                     }
 
@@ -556,15 +556,15 @@ mod tests {
         let mut board = Board::new(display.clone());
 
         for cell_a in Area::new((0, 0), (2, 2)).iterate_over() {
-            if cell_a == (1, 1) {
+            if cell_a == (1, 1).into() {
                 continue;
             }
             for cell_b in Area::new((0, 0), (2, 2)).iterate_over() {
-                if cell_b == (1, 1) || cell_b == cell_a {
+                if cell_b == (1, 1).into() || cell_b == cell_a {
                     continue;
                 }
                 for cell_c in Area::new((0, 0), (2, 2)).iterate_over() {
-                    if cell_c == (1, 1) || cell_c == cell_a || cell_c == cell_b {
+                    if cell_c == (1, 1).into() || cell_c == cell_a || cell_c == cell_b {
                         continue;
                     }
 
@@ -595,19 +595,19 @@ mod tests {
         let mut board = Board::new(display.clone());
 
         for cell_a in Area::new((0, 0), (2, 2)).iterate_over() {
-            if cell_a == (1, 1) {
+            if cell_a == (1, 1).into() {
                 continue;
             }
             for cell_b in Area::new((0, 0), (2, 2)).iterate_over() {
-                if cell_b == (1, 1) || cell_b == cell_a {
+                if cell_b == (1, 1).into() || cell_b == cell_a {
                     continue;
                 }
                 for cell_c in Area::new((0, 0), (2, 2)).iterate_over() {
-                    if cell_c == (1, 1) || cell_c == cell_a || cell_c == cell_b {
+                    if cell_c == (1, 1).into() || cell_c == cell_a || cell_c == cell_b {
                         continue;
                     }
                     for cell_d in Area::new((0, 0), (2, 2)).iterate_over() {
-                        if cell_d == (1, 1)
+                        if cell_d == (1, 1).into()
                             || cell_d == cell_a
                             || cell_d == cell_b
                             || cell_d == cell_c
@@ -644,19 +644,19 @@ mod tests {
         let mut board = Board::new(display.clone());
 
         for cell_a in Area::new((0, 0), (2, 2)).iterate_over() {
-            if cell_a == (1, 1) {
+            if cell_a == (1, 1).into() {
                 continue;
             }
             for cell_b in Area::new((0, 0), (2, 2)).iterate_over() {
-                if cell_b == (1, 1) || cell_b == cell_a {
+                if cell_b == (1, 1).into() || cell_b == cell_a {
                     continue;
                 }
                 for cell_c in Area::new((0, 0), (2, 2)).iterate_over() {
-                    if cell_c == (1, 1) || cell_c == cell_a || cell_c == cell_b {
+                    if cell_c == (1, 1).into() || cell_c == cell_a || cell_c == cell_b {
                         continue;
                     }
                     for cell_d in Area::new((0, 0), (2, 2)).iterate_over() {
-                        if cell_d == (1, 1)
+                        if cell_d == (1, 1).into()
                             || cell_d == cell_a
                             || cell_d == cell_b
                             || cell_d == cell_c
@@ -693,15 +693,15 @@ mod tests {
         let mut board = Board::new(display.clone());
 
         for cell_a in Area::new((0, 0), (2, 2)).iterate_over() {
-            if cell_a == (1, 1) {
+            if cell_a == (1, 1).into() {
                 continue;
             }
             for cell_b in Area::new((0, 0), (2, 2)).iterate_over() {
-                if cell_b == (1, 1) || cell_b == cell_a {
+                if cell_b == (1, 1).into() || cell_b == cell_a {
                     continue;
                 }
                 for cell_c in Area::new((0, 0), (2, 2)).iterate_over() {
-                    if cell_c == (1, 1) || cell_c == cell_a || cell_c == cell_b {
+                    if cell_c == (1, 1).into() || cell_c == cell_a || cell_c == cell_b {
                         continue;
                     }
 
@@ -736,15 +736,15 @@ mod tests {
         let mut board = Board::new(display.clone());
 
         for cell_a in Area::new((0, 0), (2, 2)).iterate_over() {
-            if cell_a == (1, 1) {
+            if cell_a == (1, 1).into() {
                 continue;
             }
             for cell_b in Area::new((0, 0), (2, 2)).iterate_over() {
-                if cell_b == (1, 1) || cell_b == cell_a {
+                if cell_b == (1, 1).into() || cell_b == cell_a {
                     continue;
                 }
                 for cell_c in Area::new((0, 0), (2, 2)).iterate_over() {
-                    if cell_c == (1, 1) || cell_c == cell_a || cell_c == cell_b {
+                    if cell_c == (1, 1).into() || cell_c == cell_a || cell_c == cell_b {
                         continue;
                     }
 
@@ -780,11 +780,11 @@ mod tests {
         let mut board = Board::new(display.clone());
 
         for cell_a in Area::new((0, 0), (2, 2)).iterate_over() {
-            if cell_a == (1, 1) {
+            if cell_a == (1, 1).into() {
                 continue;
             }
             for cell_b in Area::new((0, 0), (2, 2)).iterate_over() {
-                if cell_b == (1, 1) || cell_b == cell_a {
+                if cell_b == (1, 1).into() || cell_b == cell_a {
                     continue;
                 }
 
@@ -817,11 +817,11 @@ mod tests {
         let mut board = Board::new(display.clone());
 
         for cell_a in Area::new((0, 0), (2, 2)).iterate_over() {
-            if cell_a == (1, 1) {
+            if cell_a == (1, 1).into() {
                 continue;
             }
             for cell_b in Area::new((0, 0), (2, 2)).iterate_over() {
-                if cell_b == (1, 1) || cell_b == cell_a {
+                if cell_b == (1, 1).into() || cell_b == cell_a {
                     continue;
                 }
 
@@ -855,7 +855,7 @@ mod tests {
         let mut board = Board::new(display.clone());
 
         for cell_a in Area::new((0, 0), (2, 2)).iterate_over() {
-            if cell_a == (1, 1) {
+            if cell_a == (1, 1).into() {
                 continue;
             }
 
@@ -886,7 +886,7 @@ mod tests {
         let mut board = Board::new(display.clone());
 
         for cell_a in Area::new((0, 0), (2, 2)).iterate_over() {
-            if cell_a == (1, 1) {
+            if cell_a == (1, 1).into() {
                 continue;
             }
 
@@ -1004,7 +1004,7 @@ mod tests {
         // Generate board with alive cells.
         let mut board = Board::new(Default::default());
         for position in Area::new((-10, -10), (10, 10)).iterate_over() {
-            board.set(position.into(), Cell::Alive);
+            board.set(position, Cell::Alive);
         }
 
         // Load empty board.
@@ -1022,7 +1022,7 @@ mod tests {
 
         for position in area.iterate_over() {
             assert_eq!(
-                board.get(position.into()),
+                board.get(position),
                 Cell::Dead,
                 "Cell at {position:?} must be dead as loaded board only contained dead cells."
             )
@@ -1053,7 +1053,7 @@ mod tests {
 
         for position in area.iterate_over() {
             assert_eq!(
-                board.get(position.into()),
+                board.get(position),
                 Cell::Alive,
                 "Cell at {position:?} must be alive as loaded board only contained alive cells."
             )
@@ -1084,7 +1084,7 @@ mod tests {
 
         for (position, cell) in area.iterate_over().zip(generate_cell_iterator()) {
             assert_eq!(
-                board.get(position.into()),
+                board.get(position),
                 cell,
                 "Cell at {position:?} must be {cell:?} as loaded board had this cell in this state."
             )
@@ -1116,7 +1116,7 @@ mod tests {
         let board_area = Area::new((-6, -6), (5, 5));
 
         for position in board_area.iterate_over() {
-            board.set(position.into(), Cell::Alive);
+            board.set(position, Cell::Alive);
         }
         let save_board = board.save_board();
 
@@ -1137,16 +1137,16 @@ mod tests {
         let board_area = Area::new((-6, -6), (5, 5));
 
         for (position, cell) in board_area.iterate_over().zip(generate_cell_iterator()) {
-            board.set(position.into(), cell);
+            board.set(position, cell);
         }
         let save_board = board.save_board();
 
         let generation = 0;
         let mut board_data = BitVec::new();
-        for ((x, _), cell) in board_area.iterate_over().zip(generate_cell_iterator()) {
+        for (position, cell) in board_area.iterate_over().zip(generate_cell_iterator()) {
             // The last tile in each row is cut off due to it being empty.
             // This is intended.
-            if x == 5 {
+            if position.get_x() == 5 {
                 continue;
             }
 
@@ -1174,7 +1174,7 @@ mod tests {
 
         let area = Area::new((-2, -2), (3, 4));
         for position in area.iterate_over() {
-            board.set(position.into(), Cell::Alive);
+            board.set(position, Cell::Alive);
         }
 
         assert_eq!(board.get_board_area(), area)
@@ -1187,7 +1187,7 @@ mod tests {
 
         let area = Area::new((0, 0), (4, 4));
         for position in area.iterate_over() {
-            board.set(position.into(), Cell::Alive);
+            board.set(position, Cell::Alive);
         }
 
         board.set((4, 6).into(), Cell::Alive);

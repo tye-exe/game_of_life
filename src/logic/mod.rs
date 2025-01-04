@@ -379,17 +379,18 @@ mod types {
             self.get_min().get_y()..=self.get_max().get_y()
         }
 
-        /// Returns an iterator that iterates over all the x & y positions within this area in the tuple format `(x, y)`.
+        /// Returns an iterator that iterates over all the x & y positions within this area as [`GlobalPosition`]s.
         ///
         /// # Examples
         /// ```rust
         /// let area = Area::new((1, 1), (2, 2));
         /// let mut iterate_over = area.iterate_over();
         ///
-        /// assert_eq!(iterate_over.next().unwrap(), (1, 1));
-        /// assert_eq!(iterate_over.next().unwrap(), (2, 1));
-        /// assert_eq!(iterate_over.next().unwrap(), (1, 2));
-        /// assert_eq!(iterate_over.next().unwrap(), (2, 2));
+        /// // A (i32, i32) can be converted into a GlobalPosition with .into()
+        /// assert_eq!(iterate_over.next().unwrap(), (1, 1).into());
+        /// assert_eq!(iterate_over.next().unwrap(), (2, 1).into());
+        /// assert_eq!(iterate_over.next().unwrap(), (1, 2).into());
+        /// assert_eq!(iterate_over.next().unwrap(), (2, 2).into());
         /// assert!(iterate_over.next().is_none());
         /// ```
         ///
@@ -398,10 +399,10 @@ mod types {
         /// let area = Area::new((1, 1), (1, 1));
         /// let mut iterate_over = area.iterate_over();
         ///
-        /// assert_eq!(iterate_over.next().unwrap(), (1, 1));
+        /// assert_eq!(iterate_over.next().unwrap(), (1, 1).into());
         /// assert!(iterate_over.next().is_none());
         /// ```
-        pub fn iterate_over(&self) -> impl Iterator<Item = (i32, i32)> {
+        pub fn iterate_over(&self) -> impl Iterator<Item = GlobalPosition> {
             let GlobalPosition { x: min_x, y: min_y } = self.get_min();
             let GlobalPosition { x: max_x, y: max_y } = self.get_max();
 
@@ -419,7 +420,7 @@ mod types {
                     return None;
                 }
 
-                Some((x_pos, y_pos))
+                Some(GlobalPosition::new(x_pos, y_pos))
             })
         }
 
@@ -470,15 +471,15 @@ mod types {
             let area = Area::new((2, 2), (4, 4));
 
             let mut iterate_over = area.iterate_over();
-            assert_eq!(iterate_over.next().unwrap(), (2, 2));
-            assert_eq!(iterate_over.next().unwrap(), (3, 2));
-            assert_eq!(iterate_over.next().unwrap(), (4, 2));
-            assert_eq!(iterate_over.next().unwrap(), (2, 3));
-            assert_eq!(iterate_over.next().unwrap(), (3, 3));
-            assert_eq!(iterate_over.next().unwrap(), (4, 3));
-            assert_eq!(iterate_over.next().unwrap(), (2, 4));
-            assert_eq!(iterate_over.next().unwrap(), (3, 4));
-            assert_eq!(iterate_over.next().unwrap(), (4, 4));
+            assert_eq!(iterate_over.next().unwrap(), (2, 2).into());
+            assert_eq!(iterate_over.next().unwrap(), (3, 2).into());
+            assert_eq!(iterate_over.next().unwrap(), (4, 2).into());
+            assert_eq!(iterate_over.next().unwrap(), (2, 3).into());
+            assert_eq!(iterate_over.next().unwrap(), (3, 3).into());
+            assert_eq!(iterate_over.next().unwrap(), (4, 3).into());
+            assert_eq!(iterate_over.next().unwrap(), (2, 4).into());
+            assert_eq!(iterate_over.next().unwrap(), (3, 4).into());
+            assert_eq!(iterate_over.next().unwrap(), (4, 4).into());
             assert!(iterate_over.next().is_none());
         }
 
@@ -488,15 +489,15 @@ mod types {
             let area = Area::new((-1, -2), (1, 0));
 
             let mut iterate_over = area.iterate_over();
-            assert_eq!(iterate_over.next().unwrap(), (-1, -2));
-            assert_eq!(iterate_over.next().unwrap(), (0, -2));
-            assert_eq!(iterate_over.next().unwrap(), (1, -2));
-            assert_eq!(iterate_over.next().unwrap(), (-1, -1));
-            assert_eq!(iterate_over.next().unwrap(), (0, -1));
-            assert_eq!(iterate_over.next().unwrap(), (1, -1));
-            assert_eq!(iterate_over.next().unwrap(), (-1, 0));
-            assert_eq!(iterate_over.next().unwrap(), (0, 0));
-            assert_eq!(iterate_over.next().unwrap(), (1, 0));
+            assert_eq!(iterate_over.next().unwrap(), (-1, -2).into());
+            assert_eq!(iterate_over.next().unwrap(), (0, -2).into());
+            assert_eq!(iterate_over.next().unwrap(), (1, -2).into());
+            assert_eq!(iterate_over.next().unwrap(), (-1, -1).into());
+            assert_eq!(iterate_over.next().unwrap(), (0, -1).into());
+            assert_eq!(iterate_over.next().unwrap(), (1, -1).into());
+            assert_eq!(iterate_over.next().unwrap(), (-1, 0).into());
+            assert_eq!(iterate_over.next().unwrap(), (0, 0).into());
+            assert_eq!(iterate_over.next().unwrap(), (1, 0).into());
             assert!(iterate_over.next().is_none());
         }
 
@@ -506,13 +507,13 @@ mod types {
             // Test positive area.
             let positive_area = Area::new((0, 0), (0, 0));
             let mut iterate_over = positive_area.iterate_over();
-            assert_eq!(iterate_over.next().unwrap(), (0, 0));
+            assert_eq!(iterate_over.next().unwrap(), (0, 0).into());
             assert!(iterate_over.next().is_none());
 
             // Test negative area.
             let negative_area = Area::new((-1, -1), (-1, -1));
             let mut iterate_over = negative_area.iterate_over();
-            assert_eq!(iterate_over.next().unwrap(), (-1, -1));
+            assert_eq!(iterate_over.next().unwrap(), (-1, -1).into());
             assert!(iterate_over.next().is_none());
         }
     }
