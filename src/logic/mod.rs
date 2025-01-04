@@ -346,27 +346,17 @@ mod types {
             let pos2 = pos2.into();
 
             // Construct from with the smallest x & y
-            let from = GlobalPosition {
+            let min = GlobalPosition {
                 x: pos1.get_x().min(pos2.get_x()),
                 y: pos1.get_y().min(pos2.get_y()),
             };
             // Construct to with the biggest x & y
-            let to = GlobalPosition {
+            let max = GlobalPosition {
                 x: pos1.get_x().max(pos2.get_x()),
                 y: pos1.get_y().max(pos2.get_y()),
             };
 
-            Self { min: from, max: to }
-        }
-
-        /// Gets the minimum x & minimum y of the area.
-        pub fn get_from(&self) -> GlobalPosition {
-            self.min
-        }
-
-        /// Gets the maximum x & biggest y of the area.
-        pub fn get_to(&self) -> GlobalPosition {
-            self.max
+            Self { min, max }
         }
 
         /// Gets the minimum x & minimum y of the area.
@@ -412,8 +402,8 @@ mod types {
         /// assert!(iterate_over.next().is_none());
         /// ```
         pub fn iterate_over(&self) -> impl Iterator<Item = (i32, i32)> {
-            let GlobalPosition { x: min_x, y: min_y } = self.get_from();
-            let GlobalPosition { x: max_x, y: max_y } = self.get_to();
+            let GlobalPosition { x: min_x, y: min_y } = self.get_min();
+            let GlobalPosition { x: max_x, y: max_y } = self.get_max();
 
             let mut x_pos = min_x - 1;
             let mut y_pos = min_y;
@@ -470,8 +460,8 @@ mod types {
         fn from_lower_to_higher() {
             let area = Area::new((10, 5), (5, 10));
 
-            assert_eq!(area.get_from(), (5, 5).into());
-            assert_eq!(area.get_to(), (10, 10).into());
+            assert_eq!(area.get_min(), (5, 5).into());
+            assert_eq!(area.get_max(), (10, 10).into());
         }
 
         #[test]

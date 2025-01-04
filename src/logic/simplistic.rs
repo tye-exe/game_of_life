@@ -139,8 +139,8 @@ impl Simulator for Board {
         // Get the state of the board within the specified size
         let mut board_build = Vec::new();
 
-        let from = &self.display_size_buf.get_from();
-        let to = &self.display_size_buf.get_to();
+        let from = &self.display_size_buf.get_min();
+        let to = &self.display_size_buf.get_max();
         for x in from.get_x()..to.get_x() {
             let mut y_builder = Vec::new();
             for y in from.get_y()..to.get_y() {
