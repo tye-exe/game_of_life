@@ -70,8 +70,6 @@ pub fn ui_init(
 const BOARD_ID: &str = "board";
 /// The egui id for the top panel.
 const TOP_PANEL: &str = "Top_Panel";
-/// The egui id for the right panel.
-const RIGHT_PANEL: &str = "Right_Panel";
 /// The egui id for the settings panel.
 const SETTINGS_PANEL: &str = "Settings_Panel";
 /// The egui id for the debug window.
