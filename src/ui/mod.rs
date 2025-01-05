@@ -520,6 +520,25 @@ impl eframe::App for MyApp<'static> {
             }
         }
 
+        loop {
+            let simulator_packet = match self.simulator_receiver.try_recv() {
+                Ok(simulator_packet) => simulator_packet,
+                Err(TryRecvError::Empty) => {
+                    break;
+                }
+                Err(TryRecvError::Disconnected) => {
+                    self.error_occurred = Some(ErrorData::from_error(lang::RECEIVE_ERROR));
+                    return;
+                }
+            };
+
+            match simulator_packet {
+                crate::logic::SimulatorPacket::BoardSave { board } => {
+                    todo!()
+                }
+                crate::logic::SimulatorPacket::BlueprintSave { blueprint } => todo!(),
+            }
+        }
 
         // Time framerate
         #[cfg(debug_assertions)]
