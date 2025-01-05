@@ -1,48 +1,23 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
-mod file_management;
-mod settings;
-
 use crate::{
     error_text,
-    logic::{
-        board_data::BoardSave, Area, BoardDisplay, GlobalPosition, SharedDisplay,
-        SimulatorReceiver, UiPacket, UiSender,
-    },
+    file_management::{Load, Save},
+    lang,
+    settings::{Settings, SettingsMenu},
     USER_SAVE_PATH,
 };
-use egui::{pos2, Color32, Id, Painter, Rect, TextBuffer};
+use egui::{pos2, Color32, Id, Painter, Rect};
 use egui_keybind::Bind;
-use file_management::{Load, Save};
-use settings::{Settings, SettingsMenu};
+use gol_lib::{
+    board_data::BoardSave,
+    communication::{SimulatorPacket, UiPacket},
+    Area, BoardDisplay, Cell, GlobalPosition, SharedDisplay, SimulatorReceiver, UiSender,
+};
 use std::{
     sync::mpsc::TryRecvError,
     time::{Duration, Instant},
 };
-
-mod lang {
-    use crate::lang;
-
-    lang! {
-        APP_NAME, "Game Of Life";
-        UNRECOVERABLE_ERROR_HEADER, "Encountered Unrecoverable Error";
-        ERROR_MESSAGE, "Error: ";
-        ERROR_ADVICE, "Please restart the application.";
-        SEND_ERROR, "Unable to send packet to simulation.";
-        RECEIVE_ERROR, "Unable to receive data from simulation.";
-        SHARED_DISPLAY_POISIONED, "Unable to read board from simulation.";
-        SETTINGS_CLOSE, "Close";
-        SETTINGS_RESET, "Reset";
-        SETTINGS_LABEL, "Settings";
-        SETTINGS_CELL_HEADER, "Cells";
-        SETTINGS_KEYBIND_HEADER, "Keybinds";
-        SETTINGS_CELL_ALIVE_COLOUR, "Cell alive colour:";
-        SETTINGS_CELL_DEAD_COLOUR, "Cell dead colour:";
-        SETTINGS_CELL_SIZE, "Cell size:";
-        SETTINGS_KEYBIND_SIMULATION_TOGGLE, "Toggle Simulation:";
-        SETTINGS_KEYBIND_SETTINGS_MENU_TOGGLE, "Toggle Settings Menu:"
-    }
-}
 
 /// Runs the ui.
 pub fn ui_init(
@@ -68,7 +43,7 @@ pub fn ui_init(
     );
 
     // Command similator thread to terminate after the ui is closed.
-    if ui_sender.send(crate::logic::UiPacket::Terminate).is_err() {
+    if ui_sender.send(UiPacket::Terminate).is_err() {
         log::error!("{}", error_text::COMMAND_SIM_THREAD_TERM)
     };
     run_native
@@ -79,7 +54,7 @@ const BOARD_ID: &str = "board";
 /// The egui id for the top panel.
 const TOP_PANEL: &str = "Top_Panel";
 /// The egui id for the settings panel.
-const SETTINGS_PANEL: &str = "Settings_Panel";
+pub(crate) const SETTINGS_PANEL: &str = "Settings_Panel";
 /// The egui id for the debug window.
 #[cfg(debug_assertions)]
 const DEBUG_WINDOW: &str = "Debug_Window";
@@ -163,7 +138,7 @@ impl MyApp<'static> {
             .ui_sender
             .send(UiPacket::Set {
                 position: (0, 0).into(),
-                cell_state: crate::logic::Cell::Alive,
+                cell_state: Cell::Alive,
             })
             .unwrap();
 
@@ -171,7 +146,7 @@ impl MyApp<'static> {
             .ui_sender
             .send(UiPacket::Set {
                 position: (0, 1).into(),
-                cell_state: crate::logic::Cell::Alive,
+                cell_state: Cell::Alive,
             })
             .unwrap();
 
@@ -179,7 +154,7 @@ impl MyApp<'static> {
             .ui_sender
             .send(UiPacket::Set {
                 position: (0, 2).into(),
-                cell_state: crate::logic::Cell::Alive,
+                cell_state: Cell::Alive,
             })
             .unwrap();
 
@@ -502,8 +477,8 @@ impl eframe::App for MyApp<'static> {
                             .display_cache
                             .get_cell((x_index as i32, y_index as i32))
                         {
-                            crate::logic::Cell::Alive => self.settings.cell.alive_colour,
-                            crate::logic::Cell::Dead => self.settings.cell.dead_colour,
+                            Cell::Alive => self.settings.cell.alive_colour,
+                            Cell::Dead => self.settings.cell.dead_colour,
                         }
                     },
                     egui::Stroke::new(1.0, Color32::GRAY),
@@ -559,7 +534,7 @@ impl eframe::App for MyApp<'static> {
             };
 
             match simulator_packet {
-                crate::logic::SimulatorPacket::BoardSave { board } => {
+                SimulatorPacket::BoardSave { board } => {
                     BoardSave::new(
                         self.save.save_name.clone(),
                         self.save.save_description.clone(),
@@ -570,7 +545,7 @@ impl eframe::App for MyApp<'static> {
 
                     self.save.save_requested = false;
                 }
-                crate::logic::SimulatorPacket::BlueprintSave { blueprint } => todo!(),
+                SimulatorPacket::BlueprintSave { blueprint } => todo!(),
             }
         }
 

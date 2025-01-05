@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use crate::logic::{board_data::SaveData, UiPacket};
+use gol_lib::{board_data::SaveData, communication::UiPacket};
 
 #[derive(Default)]
 pub(crate) struct Save {

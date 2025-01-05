@@ -1,0 +1,8 @@
+[package]
+name = "gol_simple"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bitvec = { version = "1.0.1", features = ["serde"] }
+gol_lib = { path = "../gol_lib" }

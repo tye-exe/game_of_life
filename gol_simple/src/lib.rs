@@ -1,9 +1,12 @@
+//! A simplistic implementation of [`Simulator`].
+//! There is no consideration to performance; Only a Minimum Viable Product.
+
 use std::{
     collections::{HashMap, HashSet},
     ops::AddAssign,
 };
 
-use super::{Area, BoardDisplay, Cell, GlobalPosition, SharedDisplay, Simulator};
+use gol_lib::{Area, BoardDisplay, Cell, GlobalPosition, SharedDisplay, Simulator};
 
 /// Represents a board that the cells inhabit.
 pub struct Board {
@@ -218,7 +221,7 @@ impl Simulator for Board {
 mod tests {
     use bitvec::vec::BitVec;
 
-    use crate::logic::SimulationSave;
+    use gol_lib::board_data::SimulationSave;
 
     use super::*;
 

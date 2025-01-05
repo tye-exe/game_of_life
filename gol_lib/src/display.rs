@@ -3,7 +3,7 @@
 
 use std::{num::NonZeroUsize, sync::Arc};
 
-use super::{Cell, GlobalPosition};
+use super::{cell::Cell, position::GlobalPosition};
 
 /// Holds the board data for the ui to display.
 ///
@@ -24,6 +24,8 @@ impl BoardDisplay {
     /// # Example
     /// Simple way to create the correct board data type.
     /// ```
+    /// # use gol_lib::{Cell, BoardDisplay};
+    /// # let generation = 0;
     /// let mut board_build = Vec::new();
     /// for _ in 0..4 {
     ///     let mut y_builder = Vec::new();
@@ -35,7 +37,7 @@ impl BoardDisplay {
     ///     board_build.push(array);
     /// }
     ///
-    /// BoardDisplay::new(0, board_build)
+    /// BoardDisplay::new(generation, board_build);
     /// ```
     pub fn new(generation: u64, board: impl Into<Arc<[Box<[Cell]>]>>) -> Self {
         Self {

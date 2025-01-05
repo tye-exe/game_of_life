@@ -1,6 +1,5 @@
 //! Contains the data structures used for handling blueprint & save data.
 
-use super::{Area, GlobalPosition};
 use bitvec::boxed::BitBox;
 use std::{
     error::Error,
@@ -10,17 +9,19 @@ use std::{
 };
 use walkdir::WalkDir;
 
+use crate::{Area, GlobalPosition};
+
 /// The board data that a simulation consists of.
 #[derive(serde::Deserialize)]
 #[cfg_attr(any(test, debug_assertions), derive(Debug, PartialEq))]
-pub(crate) struct SimulationSave {
+pub struct SimulationSave {
     pub(crate) generation: u64,
     pub(crate) board_area: Area,
     pub(crate) board_data: BitBox,
 }
 
 impl SimulationSave {
-    pub(crate) fn new(generation: u64, board_area: Area, board_data: impl Into<BitBox>) -> Self {
+    pub fn new(generation: u64, board_area: Area, board_data: impl Into<BitBox>) -> Self {
         Self {
             generation,
             board_area,
@@ -83,7 +84,7 @@ impl SaveData {
 /// The data that a save of a simulation consists of.
 #[derive(serde::Serialize, serde::Deserialize)]
 #[cfg_attr(any(test, debug_assertions), derive(Debug, PartialEq))]
-pub(crate) struct BoardSave {
+pub struct BoardSave {
     version: u32,
 
     save_name: Box<str>,
@@ -96,7 +97,7 @@ pub(crate) struct BoardSave {
 }
 
 impl BoardSave {
-    pub(crate) fn new(
+    pub fn new(
         save_name: impl Into<Box<str>>,
         save_description: impl Into<Box<str>>,
         view_position: Option<GlobalPosition>,
@@ -144,14 +145,14 @@ impl BoardSave {
 /// The board data that a blueprint consists of.
 #[derive(serde::Deserialize)]
 #[cfg_attr(any(test, debug_assertions), derive(Debug))]
-pub(crate) struct SimulationBlueprint {
+pub struct SimulationBlueprint {
     pub(crate) x_size: i32,
     pub(crate) y_size: i32,
     pub(crate) blueprint_data: BitBox,
 }
 
 impl SimulationBlueprint {
-    pub(crate) fn new(x_size: i32, y_size: i32, blueprint_data: impl Into<BitBox>) -> Self {
+    pub fn new(x_size: i32, y_size: i32, blueprint_data: impl Into<BitBox>) -> Self {
         Self {
             x_size,
             y_size,
