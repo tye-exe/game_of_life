@@ -434,12 +434,18 @@ mod types {
             self.max.y += move_by;
         }
 
+        /// Modifies the area via increasing/decreasing the maximum x position by the given amount.
+        ///
+        /// If the modified x would be lower than the minimum x, it will instead be set to the minimum x value.
         pub fn modify_x(&mut self, x_change: i32) {
-            self.max.x += x_change;
+            self.max.x = self.min.x.max(self.max.x + x_change);
         }
 
+        /// Modifies the area via increasing/decreasing the maximum y position by the given amount.
+        ///
+        /// If the modified y would be lower than the minimum y, it will instead be set to the minimum y value.
         pub fn modify_y(&mut self, y_change: i32) {
-            self.max.y += y_change;
+            self.max.y = self.min.y.max(self.max.y + y_change)
         }
 
         pub fn x_difference(&self) -> i32 {
@@ -515,6 +521,31 @@ mod types {
             let mut iterate_over = negative_area.iterate_over();
             assert_eq!(iterate_over.next().unwrap(), (-1, -1).into());
             assert!(iterate_over.next().is_none());
+        }
+
+        #[test]
+        /// Modifying the area caps at a x & y difference of 0.
+        /// You cannot have a negative difference.
+        fn modify_keeps_invariant() {
+            let mut area = Area::new((1, 1), (4, 4));
+
+            area.modify_x(-10);
+            assert_eq!(area, Area::new((1, 1), (1, 4)));
+
+            area.modify_y(-10);
+            assert_eq!(area, Area::new((1, 1), (1, 1)));
+        }
+
+        #[test]
+        /// Modify will expand the corresponding maximum position.
+        fn modify_expands_area() {
+            let mut area = Area::new((1, 1), (4, 4));
+
+            area.modify_x(10);
+            assert_eq!(area, Area::new((1, 1), (14, 4)));
+
+            area.modify_y(10);
+            assert_eq!(area, Area::new((1, 1), (14, 14)));
         }
     }
 }
