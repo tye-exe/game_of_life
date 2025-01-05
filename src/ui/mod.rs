@@ -560,7 +560,15 @@ impl eframe::App for MyApp<'static> {
 
             match simulator_packet {
                 crate::logic::SimulatorPacket::BoardSave { board } => {
-                    todo!()
+                    BoardSave::new(
+                        self.save.save_name.clone(),
+                        self.save.save_description.clone(),
+                        None,
+                        board,
+                    )
+                    .save(USER_SAVE_PATH.clone());
+
+                    self.save.save_requested = false;
                 }
                 crate::logic::SimulatorPacket::BlueprintSave { blueprint } => todo!(),
             }
