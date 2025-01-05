@@ -1,17 +1,24 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
+mod file_management;
 mod settings;
 
 use crate::{
     error_text,
     logic::{
-        Area, BoardDisplay, GlobalPosition, SharedDisplay, SimulatorReceiver, UiPacket, UiSender,
+        board_data::BoardSave, Area, BoardDisplay, GlobalPosition, SharedDisplay,
+        SimulatorReceiver, UiPacket, UiSender,
     },
+    USER_SAVE_PATH,
 };
-use egui::{pos2, Color32, Id, Painter, Rect};
+use egui::{pos2, Color32, Id, Painter, Rect, TextBuffer};
 use egui_keybind::Bind;
+use file_management::{Load, Save};
 use settings::{Settings, SettingsMenu};
-use std::time::{Duration, Instant};
+use std::{
+    sync::mpsc::TryRecvError,
+    time::{Duration, Instant},
+};
 
 mod lang {
     use crate::lang;
@@ -22,6 +29,7 @@ mod lang {
         ERROR_MESSAGE, "Error: ";
         ERROR_ADVICE, "Please restart the application.";
         SEND_ERROR, "Unable to send packet to simulation.";
+        RECEIVE_ERROR, "Unable to receive data from simulation.";
         SHARED_DISPLAY_POISIONED, "Unable to read board from simulation.";
         SETTINGS_CLOSE, "Close";
         SETTINGS_RESET, "Reset";
@@ -106,6 +114,11 @@ struct MyApp<'a> {
     /// A channel to receive data from the simulator.
     simulator_receiver: SimulatorReceiver,
 
+    /// The menu & options for saving files.
+    save: Save,
+    /// The menu & options for loading files.
+    load: Load,
+
     /// The settings menu for this application.
     settings_menu: SettingsMenu,
     /// The persistent settings.
@@ -135,6 +148,8 @@ impl MyApp<'static> {
             last_frame_time: Duration::new(0, 0),
             settings_menu: SettingsMenu::default(),
             settings: Settings::default(),
+            save: Save::default(),
+            load: Default::default(),
         };
 
         // Load stored configurations
@@ -314,6 +329,9 @@ impl eframe::App for MyApp<'static> {
 
         self.check_keybinds(ctx);
 
+        self.save.draw(ctx, &mut to_send);
+        self.load.draw(ctx);
+
         // Stores the size the board will take up.
         let mut board_rect = Rect::from_min_max(
             (0.0, 0.0).into(),
@@ -337,6 +355,14 @@ impl eframe::App for MyApp<'static> {
 
                 if ui.button("Settings").clicked() {
                     self.settings_menu.open = !self.settings_menu.open;
+                }
+
+                if ui.button("Save").clicked() {
+                    self.save.show = !self.save.show;
+                }
+
+                if ui.button("Load").clicked() {
+                    self.load.show = !self.load.show
                 }
 
                 #[cfg(debug_assertions)]
