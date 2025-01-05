@@ -323,7 +323,7 @@ mod types {
     }
 
     /// A single wrapper struct around the two opposite corners of rectangle.
-    #[derive(Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+    #[derive(Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize, Hash)]
     #[cfg_attr(any(test, debug_assertions), derive(Debug))]
     pub struct Area {
         /// The min x & the min y position.
