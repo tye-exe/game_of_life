@@ -361,7 +361,7 @@ impl eframe::App for MyApp<'static> {
         // Draws the central panel to provide the area for user interaction.
         egui::CentralPanel::default().show(ctx, |ui| {
             let interact = ui.interact(
-                board_rect.clone(),
+                board_rect,
                 Id::new("Board_Drag_Sense"),
                 egui::Sense::click_and_drag(),
             );
@@ -462,10 +462,10 @@ impl eframe::App for MyApp<'static> {
         for (x_index, x_origin) in x_iter.enumerate() {
             for (y_index, y_origin) in y_iter.clone().enumerate() {
                 let rect = Rect::from_two_pos(
-                    pos2(x_origin as f32, y_origin as f32),
+                    pos2(x_origin, y_origin),
                     pos2(
-                        x_origin as f32 + self.settings.cell.size,
-                        y_origin as f32 + self.settings.cell.size,
+                        x_origin + self.settings.cell.size,
+                        y_origin + self.settings.cell.size,
                     ),
                 );
 

@@ -133,7 +133,7 @@ pub fn start_simulator(
                                 tick_rate_limited = false;
                             }
                         },
-                        UiPacket::Terminate => return (),
+                        UiPacket::Terminate => return,
                     }
                 }
 

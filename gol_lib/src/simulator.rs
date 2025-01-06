@@ -46,7 +46,7 @@ pub trait Simulator: Send {
 
         let mut board_data = bitvec::vec::BitVec::new();
         for position in board_area.iterate_over() {
-            board_data.push(self.get(position.into()).into());
+            board_data.push(self.get(position).into());
         }
 
         SimulationSave::new(self.get_generation(), board_area, board_data)
@@ -63,7 +63,7 @@ pub trait Simulator: Send {
 
         self.set_generation(generation);
         for (position, cell) in board_area.iterate_over().zip(board_data.into_iter()) {
-            self.set(position.into(), cell.into());
+            self.set(position, cell.into());
         }
     }
 
@@ -71,7 +71,7 @@ pub trait Simulator: Send {
     fn save_blueprint(&self, area: Area) -> SimulationBlueprint {
         let mut blueprint_data = bitvec::vec::BitVec::new();
         for position in area.iterate_over() {
-            blueprint_data.push(self.get(position.into()).into());
+            blueprint_data.push(self.get(position).into());
         }
 
         SimulationBlueprint::new(area.x_difference(), area.y_difference(), blueprint_data)
@@ -91,7 +91,7 @@ pub trait Simulator: Send {
         area.translate_y(load_position.get_y());
 
         for (position, cell) in area.iterate_over().zip(blueprint_data.into_iter()) {
-            self.set(position.into(), cell.into());
+            self.set(position, cell.into());
         }
     }
 }

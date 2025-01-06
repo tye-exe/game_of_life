@@ -2,16 +2,11 @@
 ///
 /// An alive cell is represented as `true`.
 /// A dead cell is represented as `false`.
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Debug, Clone, Copy, Default)]
 pub enum Cell {
-    Alive,
+    #[default]
     Dead,
-}
-
-impl Default for Cell {
-    fn default() -> Self {
-        Cell::Dead
-    }
+    Alive,
 }
 
 impl From<Cell> for bool {

@@ -58,7 +58,7 @@ impl BoardDisplay {
     /// If the board is 0 sized then an amount of 10 will be returned.
     pub fn get_y(&self) -> NonZeroUsize {
         self.board
-            .get(0)
+            .first()
             .and_then(|sub_array| NonZeroUsize::new(sub_array.len()))
             .unwrap_or(unsafe { NonZeroUsize::new_unchecked(10) })
     }
@@ -72,7 +72,7 @@ impl BoardDisplay {
         self.board
             .get(position.get_x() as usize)
             .and_then(|sub_array| sub_array.get(position.get_y() as usize))
-            .map(|cell| *cell)
+            .copied()
             .unwrap_or_default()
     }
 }
