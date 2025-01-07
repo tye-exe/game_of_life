@@ -4,7 +4,7 @@ use crate::{
     error_text,
     file_management::{Load, Save},
     lang,
-    settings::{Settings, SettingsMenu},
+    settings::Settings,
     USER_SAVE_PATH,
 };
 use egui::{pos2, Color32, Id, Painter, Rect};
@@ -94,8 +94,6 @@ struct MyApp<'a> {
     /// The menu & options for loading files.
     load: Load,
 
-    /// The settings menu for this application.
-    settings_menu: SettingsMenu,
     /// The persistent settings.
     settings: Settings,
 }
@@ -121,7 +119,6 @@ impl MyApp<'static> {
             display_area: Area::new((-10, -10), (10, 10)),
             #[cfg(debug_assertions)]
             last_frame_time: Duration::new(0, 0),
-            settings_menu: SettingsMenu::default(),
             settings: Settings::default(),
             save: Save::default(),
             load: Default::default(),
@@ -243,7 +240,7 @@ impl MyApp<'static> {
 
         ctx.input_mut(|input| {
             if keybind.settings_menu.pressed(input) {
-                self.settings_menu.open = !self.settings_menu.open;
+                self.settings.open = !self.settings.open;
             }
         })
     }
@@ -314,7 +311,7 @@ impl eframe::App for MyApp<'static> {
         );
 
         // Draw settings menu
-        if let Some(inner_response) = self.settings_menu.draw(&mut self.settings, ctx) {
+        if let Some(inner_response) = self.settings.draw(ctx) {
             let size = inner_response.response.rect.size();
             *board_rect.left_mut() += size.x;
         };
@@ -329,7 +326,7 @@ impl eframe::App for MyApp<'static> {
                 }
 
                 if ui.button("Settings").clicked() {
-                    self.settings_menu.open = !self.settings_menu.open;
+                    self.settings.open = !self.settings.open;
                 }
 
                 if ui.button("Save").clicked() {
