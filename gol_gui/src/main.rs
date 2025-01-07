@@ -1,7 +1,8 @@
 use std::{error::Error, path::PathBuf, sync::LazyLock, thread, time::Duration};
 
+use app::MyApp;
 use app_dirs2::{get_app_dir, get_app_root, AppDataType, AppInfo};
-use gol_lib::{SharedDisplay, Simulator};
+use gol_lib::{communication::UiPacket, SharedDisplay, Simulator};
 
 mod app;
 mod file_management;
@@ -18,12 +19,34 @@ fn main() -> Result<(), Box<dyn Error>> {
     let ((ui_sender, ui_receiver), (simulator_sender, simulator_receiver)) =
         gol_lib::create_channels();
 
+    // Start Simulator.
     let simulator = gol_lib::start_simulator(board, ui_receiver, simulator_sender)
         .inspect_err(|_| eprintln!("{}", error_text::CREATE_SIMULATION_THREAD))?;
 
+    // Start UI.
+    let native_options = eframe::NativeOptions {
+        ..Default::default()
+    };
+
     // The ui has to run on the main thread for compatibility purposes.
-    app::ui_init(shared_display, ui_sender, simulator_receiver)
-        .inspect_err(|_| eprintln!("{}", error_text::UI_INIT))?;
+    eframe::run_native(
+        lang::APP_NAME,
+        native_options,
+        Box::new(|cc| {
+            Ok(Box::new(MyApp::new(
+                cc,
+                shared_display,
+                ui_sender.clone(),
+                simulator_receiver,
+            )))
+        }),
+    )
+    .inspect_err(|_| eprintln!("{}", error_text::UI_INIT))?;
+
+    // Command similator thread to terminate after the ui is closed.
+    if ui_sender.send(UiPacket::Terminate).is_err() {
+        log::error!("{}", error_text::COMMAND_SIM_THREAD_TERM)
+    };
 
     // The retuned error does not implement the Error trait so panic instead.
     simulator.join().expect(error_text::SIM_THREAD_TERM);

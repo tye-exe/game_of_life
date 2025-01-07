@@ -1,7 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
 use crate::{
-    error_text,
     file_management::{Load, Save},
     lang,
     settings::Settings,
@@ -19,36 +18,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-/// Runs the ui.
-pub fn ui_init(
-    display: SharedDisplay,
-    ui_sender: UiSender,
-    simulator_receiver: SimulatorReceiver,
-) -> eframe::Result<()> {
-    let native_options = eframe::NativeOptions {
-        ..Default::default()
-    };
-
-    let run_native = eframe::run_native(
-        lang::APP_NAME,
-        native_options,
-        Box::new(|cc| {
-            Ok(Box::new(MyApp::new(
-                cc,
-                display,
-                ui_sender.clone(),
-                simulator_receiver,
-            )))
-        }),
-    );
-
-    // Command similator thread to terminate after the ui is closed.
-    if ui_sender.send(UiPacket::Terminate).is_err() {
-        log::error!("{}", error_text::COMMAND_SIM_THREAD_TERM)
-    };
-    run_native
-}
-
 /// The egui id for the board where the cells are being displayed.
 const BOARD_ID: &str = "board";
 /// The egui id for the top panel.
@@ -60,7 +29,7 @@ pub(crate) const SETTINGS_PANEL: &str = "Settings_Panel";
 const DEBUG_WINDOW: &str = "Debug_Window";
 
 /// The struct that contains the data for the gui of my app.
-struct MyApp<'a> {
+pub struct MyApp<'a> {
     label: &'a str,
 
     /// Whether the debug window is open or not.
