@@ -2,16 +2,23 @@ use std::{error::Error, path::PathBuf, sync::LazyLock, thread, time::Duration};
 
 use app::MyApp;
 use app_dirs2::{get_app_dir, get_app_root, AppDataType, AppInfo};
+use args::Args;
+use clap::Parser;
 use gol_lib::{communication::UiPacket, SharedDisplay, Simulator};
 
 mod app;
+mod args;
 mod file_management;
 mod settings;
 
 fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init();
 
-    init_directories().inspect_err(|_| eprintln!("{}", error_text::DIRECTORY_CREATION))?;
+    let args = Args::parse();
+
+    let mut config_path = args.config_path.unwrap_or(USER_CONFIG_PATH.clone());
+    std::fs::create_dir_all(config_path.as_path())?;
+    config_path.push("config_data.json");
 
     let shared_display = SharedDisplay::default();
     let board = gol_simple::Board::new(shared_display.clone());
@@ -25,6 +32,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Start UI.
     let native_options = eframe::NativeOptions {
+        // Takes path to file, not dir.
+        persistence_path: Some(config_path),
         ..Default::default()
     };
 
@@ -54,6 +63,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+/// The information used to get the default save locations.
 pub const APP_INFO: AppInfo = AppInfo {
     name: "game_of_life-tye",
     author: "tye",
