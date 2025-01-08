@@ -155,16 +155,6 @@ mod lang {
         ERROR_ADVICE, "Please restart the application.";
         SEND_ERROR, "Unable to send packet to simulation.";
         RECEIVE_ERROR, "Unable to receive data from simulation.";
-        SHARED_DISPLAY_POISIONED, "Unable to read board from simulation.";
-        SETTINGS_CLOSE, "Close";
-        SETTINGS_RESET, "Reset";
-        SETTINGS_LABEL, "Settings";
-        SETTINGS_CELL_HEADER, "Cells";
-        SETTINGS_KEYBIND_HEADER, "Keybinds";
-        SETTINGS_CELL_ALIVE_COLOUR, "Cell alive colour:";
-        SETTINGS_CELL_DEAD_COLOUR, "Cell dead colour:";
-        SETTINGS_CELL_SIZE, "Cell size:";
-        SETTINGS_KEYBIND_SIMULATION_TOGGLE, "Toggle Simulation:";
-        SETTINGS_KEYBIND_SETTINGS_MENU_TOGGLE, "Toggle Settings Menu:"
+        SHARED_DISPLAY_POISIONED, "Unable to read board from simulation."
     }
 }
