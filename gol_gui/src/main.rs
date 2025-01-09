@@ -79,44 +79,23 @@ static USER_CONFIG_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
     get_app_root(AppDataType::UserConfig, &APP_INFO).unwrap()
 });
 
-/// The path to where user data will be stored.
-/// This path is guaranteed to exist.
-///
-/// On Linux:
-/// `/home/<user>/.local/share/game_of_life`
-static USER_DATA_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
-    // The only way this can error is if the APP_INFO has empty fields.
-    get_app_root(AppDataType::UserData, &APP_INFO).unwrap()
-});
-
 /// The path to where board saves will be stored.
-/// This path is guaranteed to exist.
 ///
 /// On Linux:
 /// `/home/<user>/.local/share/game_of_life/saves`
-static USER_SAVE_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
+static DEFAULT_SAVE_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
     // The only way this can error is if the APP_INFO has empty fields.
     get_app_dir(AppDataType::UserData, &APP_INFO, "saves").unwrap()
 });
 
 /// The path to where blueprints will be stored.
-/// This path is guaranteed to exist.
 ///
 /// On Linux:
 /// `/home/<user>/.local/share/game_of_life/blueprints`
-static USER_BLUEPRINT_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
+static DEFAULT_BLUEPRINT_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
     // The only way this can error is if the APP_INFO has empty fields.
     get_app_dir(AppDataType::UserData, &APP_INFO, "blueprints").unwrap()
 });
-
-/// Creates the directories used by this application.
-fn init_directories() -> Result<(), std::io::Error> {
-    std::fs::create_dir_all(USER_CONFIG_PATH.as_path())?;
-    std::fs::create_dir_all(USER_DATA_PATH.as_path())?;
-    std::fs::create_dir_all(USER_SAVE_PATH.as_path())?;
-    std::fs::create_dir_all(USER_BLUEPRINT_PATH.as_path())?;
-    Ok(())
-}
 
 /// Creates a public constant string with the name as the name of the constant
 /// and the text as the value of the string.

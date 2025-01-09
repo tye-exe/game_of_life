@@ -4,7 +4,7 @@ use crate::{
     file_management::{Load, Save},
     lang,
     settings::Settings,
-    USER_SAVE_PATH,
+    DEFAULT_SAVE_PATH,
 };
 use egui::{pos2, Color32, Id, Painter, Rect};
 use egui_keybind::Bind;
@@ -507,7 +507,7 @@ impl eframe::App for MyApp<'static> {
                         None,
                         board,
                     )
-                    .save(USER_SAVE_PATH.clone());
+                    .save(DEFAULT_SAVE_PATH.clone());
 
                     self.save.save_requested = false;
                 }

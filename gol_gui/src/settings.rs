@@ -1,7 +1,11 @@
-use egui::{Color32, KeyboardShortcut};
-use egui_keybind::Shortcut;
+use std::path::{Path, PathBuf};
 
-use crate::{app::SETTINGS_PANEL, lang, USER_BLUEPRINT_PATH, USER_SAVE_PATH};
+use egui::{Color32, KeyboardShortcut};
+use egui_file_dialog::FileDialog;
+use egui_keybind::Shortcut;
+use unicode_segmentation::UnicodeSegmentation;
+
+use crate::{app::SETTINGS_PANEL, lang, DEFAULT_BLUEPRINT_PATH, DEFAULT_SAVE_PATH};
 
 lang! {
         CLOSE, "Close";
@@ -14,7 +18,9 @@ lang! {
         CELL_SIZE, "Cell size:";
         KEYBIND_SIMULATION_TOGGLE, "Toggle Simulation:";
         KEYBIND_SETTINGS_MENU_TOGGLE, "Toggle Settings Menu:";
-        FILE_HEADER, "Storage locations"
+        FILE_HEADER, "Storage locations";
+        FILE_SAVE_PATH, "Save Path:";
+        FILE_BLUEPRINT_PATH, "Blueprint Path:"
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Default)]
@@ -27,14 +33,12 @@ pub(crate) struct Settings {
     pub(crate) cell: CellSettings,
     /// The settings for keybinds.
     pub(crate) keybind: KeybindSettings,
+    file: FileSettings,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 #[serde(default)]
 pub(crate) struct CellSettings {
-    #[serde(skip)]
-    pub(crate) open: bool,
-
     /// The colour of alive cells.
     pub(crate) alive_colour: Color32,
     /// The colour of dead cells.
@@ -46,13 +50,30 @@ pub(crate) struct CellSettings {
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 #[serde(default)]
 pub(crate) struct KeybindSettings {
-    #[serde(skip)]
-    pub(crate) open: bool,
-
     /// Keybind for toggling the settings menu.
     pub(crate) settings_menu: Shortcut,
     /// Keybind for toggling the simulation.
     pub(crate) toggle_simulation: Shortcut,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
+#[serde(default)]
+struct FileSettings {
+    /// The location of the board saves.
+    save_location: PathBuf,
+    /// The location of the blueprint saves.
+    blueprint_location: PathBuf,
+
+    #[serde(skip)]
+    /// .0 : The directory picker for the file locations.
+    /// .1 : Whether the selected directory is for saves or blueprints.
+    dir_picker: Option<(FileDialog, Selected)>,
+}
+
+#[derive(Debug)]
+enum Selected {
+    Save,
+    Blueprint,
 }
 
 impl Settings {
@@ -139,7 +160,6 @@ impl Default for KeybindSettings {
                 Some(KeyboardShortcut::new(egui::Modifiers::NONE, egui::Key::P)),
                 None,
             ),
-            open: false,
         }
     }
 }
@@ -164,4 +184,86 @@ impl KeybindSettings {
             });
         });
     }
+}
+
+impl Default for FileSettings {
+    fn default() -> Self {
+        Self {
+            save_location: DEFAULT_SAVE_PATH.clone(),
+            blueprint_location: DEFAULT_BLUEPRINT_PATH.clone(),
+            dir_picker: None,
+        }
+    }
+}
+
+impl FileSettings {
+    fn draw(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
+        egui::CollapsingHeader::new(FILE_HEADER).show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.label(FILE_SAVE_PATH);
+                if ui.button(get_display_path(&self.save_location)).clicked() {
+                    self.dir_picker = Some((
+                        {
+                            let mut file_dialog = FileDialog::new();
+                            file_dialog.select_directory();
+                            file_dialog
+                        },
+                        Selected::Save,
+                    ));
+                }
+                if ui.button(RESET).clicked() {
+                    self.save_location = DEFAULT_SAVE_PATH.clone();
+                }
+            });
+
+            ui.horizontal(|ui| {
+                ui.label(FILE_BLUEPRINT_PATH);
+                if ui
+                    .button(get_display_path(&self.blueprint_location))
+                    .clicked()
+                {
+                    self.dir_picker = Some((
+                        {
+                            let mut file_dialog = FileDialog::new();
+                            file_dialog.select_directory();
+                            file_dialog
+                        },
+                        Selected::Blueprint,
+                    ));
+                }
+                if ui.button(RESET).clicked() {
+                    self.blueprint_location = DEFAULT_BLUEPRINT_PATH.clone();
+                }
+            });
+
+            if let Some((ref mut file_dialog, ref mut selected)) = self.dir_picker {
+                file_dialog.update(ctx);
+
+                if let Some(directory) = file_dialog.take_selected() {
+                    match selected {
+                        Selected::Save => self.save_location = directory.to_path_buf(),
+                        Selected::Blueprint => self.blueprint_location = directory.to_path_buf(),
+                    }
+
+                    // Dir has been picked so remove dir picker
+                    self.dir_picker = None
+                };
+            }
+        });
+    }
+}
+
+/// If a path is short than 40 characters the full path is returned as a string.
+/// Otherwise, the last 40 characters of the path are returned prefixed with "...".
+fn get_display_path(path: &Path) -> String {
+    let display = path.display().to_string();
+    let graphemes: Vec<&str> = display.graphemes(true).collect();
+
+    if 40 >= graphemes.len() {
+        return display;
+    }
+
+    // Get last 40 chars
+    let displayed_path: String = graphemes.into_iter().rev().take(40).rev().collect();
+    format!("...{displayed_path}")
 }

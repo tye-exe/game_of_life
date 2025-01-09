@@ -23,3 +23,5 @@ app_dirs2 = "2.5.5"
 gol_lib = { path = "../gol_lib" }
 gol_simple = { path = "../gol_simple" }
 clap = { version = "4.5.23", features = ["derive"] }
+egui-file-dialog = "0.7.0"
+unicode-segmentation = "1.12.0"
