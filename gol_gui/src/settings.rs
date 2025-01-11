@@ -205,7 +205,7 @@ impl FileSettings {
                     self.dir_picker = Some((
                         {
                             let mut file_dialog = FileDialog::new();
-                            file_dialog.select_directory();
+                            file_dialog.pick_directory();
                             file_dialog
                         },
                         Selected::Save,
@@ -225,7 +225,7 @@ impl FileSettings {
                     self.dir_picker = Some((
                         {
                             let mut file_dialog = FileDialog::new();
-                            file_dialog.select_directory();
+                            file_dialog.pick_directory();
                             file_dialog
                         },
                         Selected::Blueprint,
@@ -239,7 +239,7 @@ impl FileSettings {
             if let Some((ref mut file_dialog, ref mut selected)) = self.dir_picker {
                 file_dialog.update(ctx);
 
-                if let Some(directory) = file_dialog.take_selected() {
+                if let Some(directory) = file_dialog.take_picked() {
                     match selected {
                         Selected::Save => self.save_location = directory.to_path_buf(),
                         Selected::Blueprint => self.blueprint_location = directory.to_path_buf(),
