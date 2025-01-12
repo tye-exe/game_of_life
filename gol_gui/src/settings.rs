@@ -33,7 +33,7 @@ pub(crate) struct Settings {
     pub(crate) cell: CellSettings,
     /// The settings for keybinds.
     pub(crate) keybind: KeybindSettings,
-    file: FileSettings,
+    pub(crate) file: FileSettings,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -58,11 +58,11 @@ pub(crate) struct KeybindSettings {
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 #[serde(default)]
-struct FileSettings {
+pub(crate) struct FileSettings {
     /// The location of the board saves.
-    save_location: PathBuf,
+    pub(crate) save_location: PathBuf,
     /// The location of the blueprint saves.
-    blueprint_location: PathBuf,
+    pub(crate) blueprint_location: PathBuf,
 
     #[serde(skip)]
     /// .0 : The directory picker for the file locations.
