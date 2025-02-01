@@ -10,11 +10,28 @@ pub enum PreviewParseError {
     #[error("Failed to parse possible save files: {0}")]
     FileSearch(#[from] walkdir::Error),
     /// Unable to read file.
-    #[error("Unable to read save file: {0}")]
-    FileParse(#[from] std::io::Error),
+    #[error("Unable to read save file: {error}")]
+    FileParse {
+        error: std::io::Error,
+        path: Box<Path>,
+    },
     /// The file is not a valid save file.
-    #[error("File is not a valid save file: {0}")]
-    InvalidData(#[from] serde_json::Error),
+    #[error("File is not a valid save file: {error}")]
+    InvalidData {
+        error: serde_json::Error,
+        path: Box<Path>,
+    },
+}
+
+impl PreviewParseError {
+    /// The path to the file that cause the parse error. Or `None` if the path cannot be determined.
+    pub fn path(&self) -> Option<&Path> {
+        match self {
+            PreviewParseError::FileSearch(error) => error.path(),
+            PreviewParseError::FileParse { path, .. } => Some(path),
+            PreviewParseError::InvalidData { path, .. } => Some(path),
+        }
+    }
 }
 
 /// Finds and parses [`SavePreview`]s recursively from the given directory.
@@ -70,12 +87,20 @@ impl SavePreview {
         let save_path = save_path.into();
 
         // Parse the file data.
-        let file_data = std::fs::read_to_string(save_path)?;
+        let file_data =
+            std::fs::read_to_string(save_path).map_err(|err| PreviewParseError::FileParse {
+                error: err,
+                path: save_path.into(),
+            })?;
+
         let PartialData {
             save_name,
             save_description,
             generation,
-        } = serde_json::from_str(&file_data)?;
+        } = serde_json::from_str(&file_data).map_err(|err| PreviewParseError::InvalidData {
+            error: err,
+            path: save_path.into(),
+        })?;
 
         // Construct the finial object.
         Ok(SavePreview {
@@ -288,5 +313,24 @@ mod tests {
                 save_path: path
             }
         );
+    }
+
+    #[test]
+    /// A file with invalid data must return the file path of the invalid file.
+    fn invalid_returns_path() {
+        let temp_dir = tempfile::tempdir().expect("Able to create temp dir");
+
+        // Write invalid file
+        let mut path_buf = temp_dir.path().to_path_buf();
+        path_buf.push("Invalid");
+        std::fs::write(path_buf.clone(), "Invalid!!!").expect("Able to write file");
+
+        let parse_saves = load_preview(temp_dir.path());
+        assert_eq!(parse_saves.len(), 1);
+
+        // Must return with invalid data error
+        let save_error = parse_saves.get(0).unwrap().as_ref().unwrap_err();
+        assert_eq!(save_error.path(), Some(path_buf).as_deref());
+        assert_eq!(save_error.kind(), PreviewParseErrorKind::InvalidData)
     }
 }
