@@ -19,7 +19,6 @@ lang! {
 #[derive(Default)]
 pub(crate) struct Save {
     pub(crate) show: bool,
-
     pub(crate) save_name: String,
     pub(crate) save_description: String,
 
@@ -105,16 +104,37 @@ impl Default for Load {
 }
 
 impl Load {
-    pub(crate) fn load_saves(&mut self, save_root: &Path) {
-        todo!()
-    }
-
-    pub(crate) fn draw(&mut self, ctx: &egui::Context) {
+    pub(crate) fn draw(&mut self, ctx: &egui::Context, save_location: &Path) {
         egui::Window::new("load")
             .open(&mut self.show)
             .show(ctx, |ui| {
-                if ui.button("Load saves").clicked() {
-                    // todo!()
+                let mut text = String::new();
+                match &mut self.saves {
+                    None => self.saves = Some(persistence::load_preview(save_location)),
+                    Some(saves) => {
+                        for save in saves {
+                            match save {
+                                Ok(save) => {
+                                    text.push_str(&save.save_name);
+                                    text.push('\n');
+                                    text.push_str(&save.save_description);
+                                    text.push('\n');
+                                }
+                                Err(err) => {
+                                    let string_path = err
+                                        .path()
+                                        .and_then(|path| path.to_str())
+                                        .unwrap_or("Unknown file location");
+
+                                    text.push_str(&format!("Error parsing {string_path}\n"));
+                                    text.push_str(&format!("Error: {err}"));
+                                    text.push('\n');
+                                }
+                            }
+                        }
+
+                        ui.text_edit_multiline(&mut text);
+                    }
                 }
             });
     }
