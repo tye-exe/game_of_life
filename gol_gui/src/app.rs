@@ -4,13 +4,12 @@ use crate::{
     file_management::{Load, Save},
     lang,
     settings::Settings,
-    DEFAULT_SAVE_PATH,
 };
 use egui::{pos2, Color32, Id, Painter, Rect};
 use egui_keybind::Bind;
 use gol_lib::{
     communication::{SimulatorPacket, UiPacket},
-    persistence::{self, SaveBuilder},
+    persistence::SaveBuilder,
     Area, BoardDisplay, Cell, GlobalPosition, SharedDisplay, SimulatorReceiver, UiSender,
 };
 use std::{
@@ -268,7 +267,7 @@ impl eframe::App for MyApp {
         self.check_keybinds(ctx);
 
         self.save.draw(ctx, &mut to_send, &mut self.settings);
-        self.load.draw(ctx);
+        self.load.draw(ctx, &self.settings.file.save_location);
 
         // Stores the size the board will take up.
         let mut board_rect = Rect::from_min_max(
