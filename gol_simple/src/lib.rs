@@ -221,7 +221,7 @@ impl Simulator for Board {
 mod tests {
     use bitvec::vec::BitVec;
 
-    use gol_lib::board_data::SimulationSave;
+    use gol_lib::persistence::SimulationSave;
 
     use super::*;
 
