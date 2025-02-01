@@ -1,5 +1,5 @@
 use crate::persistence::CURRENT_SAVE_VERSION;
-use std::path::Path;
+use std::{path::Path, time::Duration};
 use walkdir::WalkDir;
 
 /// The errors that can occur when attempting to parse a [`SavePreview`] from a save file.
@@ -60,17 +60,19 @@ pub fn load_preview<'a>(
 #[cfg_attr(test, derive(Debug, PartialEq))]
 pub struct SavePreview {
     /// The save file version.
-    pub version: u16,
+    version: u16,
 
     /// The name of the save. This is not the name of the save file.
-    pub save_name: Box<str>,
+    save_name: Box<str>,
     /// A description of the save.
-    pub save_description: Box<str>,
+    save_description: Box<str>,
     /// The generation this save was made on.
-    pub generation: u64,
+    generation: u64,
+    /// The time the save was made
+    save_time: Duration,
 
     /// The path to the save file. This includes the filename.
-    pub save_path: Box<Path>,
+    save_path: Box<Path>,
 }
 
 impl SavePreview {
@@ -82,6 +84,7 @@ impl SavePreview {
             save_name: Box<str>,
             save_description: Box<str>,
             generation: u64,
+            save_time: Duration,
         }
 
         let save_path = save_path.into();
@@ -97,6 +100,7 @@ impl SavePreview {
             save_name,
             save_description,
             generation,
+            save_time,
         } = serde_json::from_str(&file_data).map_err(|err| PreviewParseError::InvalidData {
             error: err,
             path: save_path.into(),
@@ -109,30 +113,44 @@ impl SavePreview {
             save_description,
             generation,
             save_path: save_path.into(),
+            save_time,
         })
     }
 
+    /// The save file version of the save file.
+    pub fn get_version(&self) -> u16 {
+        self.version
+    }
+
     /// The name of the save. This is not the name of the save file.
-    pub fn get_save_name(&self) -> Box<str> {
-        todo!()
+    pub fn get_save_name(&self) -> &str {
+        &self.save_name
     }
 
-    pub fn get_save_description(&self) -> Box<str> {
-        todo!()
+    /// The description for the save.
+    pub fn get_save_description(&self) -> &str {
+        &self.save_description
     }
 
+    /// The generation the save was made on.
     pub fn get_generation(&self) -> u64 {
-        todo!()
+        self.generation
     }
 
-    pub fn get_save_path(&self) -> Box<Path> {
-        todo!()
+    /// The path to the save file.
+    pub fn get_save_path(&self) -> &Path {
+        &self.save_path
+    }
+
+    /// The time the save was made.
+    pub fn get_time(&self) -> Duration {
+        self.save_time
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::time::SystemTime;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     use crate::persistence::board_save::SaveBuilder;
 
@@ -211,7 +229,10 @@ mod tests {
                 save_name: save_name.into(),
                 save_description: save_description.into(),
                 generation: 0,
-                save_path: path
+                save_path: path,
+                save_time: save_time
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or(Duration::default()),
             }
         );
     }
@@ -245,7 +266,10 @@ mod tests {
                 save_name: save_name.into(),
                 save_description: save_description.into(),
                 generation: 0,
-                save_path: path
+                save_path: path,
+                save_time: save_time
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or(Duration::default()),
             }
         );
     }
@@ -310,7 +334,10 @@ mod tests {
                 save_name: save_name.into(),
                 save_description: save_description.into(),
                 generation: 0,
-                save_path: path
+                save_path: path,
+                save_time: save_time
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or(Duration::default()),
             }
         );
     }
