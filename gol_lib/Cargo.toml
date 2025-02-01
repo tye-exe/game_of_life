@@ -14,6 +14,8 @@ spin_sleep_util = "0.1.1"
 bitvec = { version = "1.0.1", features = ["serde"] }
 app_dirs2 = "2.5.5"
 walkdir = "2.5.0"
+thiserror = "2.0.11"
 
 [dev-dependencies]
+kinded = "0.3.0"
 tempfile = "3.15.0"

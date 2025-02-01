@@ -1,5 +1,5 @@
 use crate::{
-    board_data::{SimulationBlueprint, SimulationSave},
+    persistence::{SimulationBlueprint, SimulationSave},
     Area, Cell, GlobalPosition, SharedDisplay,
 };
 
