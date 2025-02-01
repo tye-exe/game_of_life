@@ -29,9 +29,7 @@ pub(crate) const SETTINGS_PANEL: &str = "Settings_Panel";
 const DEBUG_WINDOW: &str = "Debug_Window";
 
 /// The struct that contains the data for the gui of my app.
-pub struct MyApp<'a> {
-    label: &'a str,
-
+pub struct MyApp {
     /// Whether the debug window is open or not.
     #[cfg(debug_assertions)]
     debug_menu_open: bool,
@@ -67,7 +65,7 @@ pub struct MyApp<'a> {
     settings: Settings,
 }
 
-impl MyApp<'static> {
+impl MyApp {
     pub fn new(
         creation_context: &eframe::CreationContext<'_>,
         display: SharedDisplay,
@@ -75,7 +73,6 @@ impl MyApp<'static> {
         simulator_receiver: SimulatorReceiver,
     ) -> Self {
         let mut my_app = MyApp {
-            label: "Hello world",
             display_update: display,
             display_cache: Default::default(),
             ui_sender,
@@ -215,7 +212,7 @@ impl MyApp<'static> {
     }
 }
 
-impl eframe::App for MyApp<'static> {
+impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         #[cfg(debug_assertions)]
         let start_time = Instant::now();
