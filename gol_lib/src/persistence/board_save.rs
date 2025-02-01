@@ -83,10 +83,9 @@ impl SaveBuilder {
             simulation_save,
         } = self;
 
-        let save_path = save_path.into();
+        let mut save_path: PathBuf = save_path.into();
         let save_name = save_name.unwrap_or("".into());
         let save_description = save_description.unwrap_or("".into());
-        let mut save_path: PathBuf = save_path.into();
 
         // Use time to differentiate saves with the same name.
         let save_time = save_time
@@ -130,23 +129,25 @@ impl SaveBuilder {
 
         Ok(save_path.into())
     }
-}
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+    /// Generates the save path that the current data will be saved at if [`Self::save`] was called.
+    ///
+    /// **ONLY AVAILABLE WHEN RUNNING TESTS**
+    #[cfg(test)]
+    pub(crate) fn generate_save_name(&self, path: &Path) -> std::path::PathBuf {
+        use std::{
+            hash::{DefaultHasher, Hash, Hasher},
+            time::UNIX_EPOCH,
+        };
 
-    fn generate_save_name(
-        path: &Path,
-        save_name: &str,
-        save_description: &str,
-        save_time: SystemTime,
-        simulation: &SimulationSave,
-    ) -> PathBuf {
-        let mut save_path = path.to_path_buf();
+        let save_name = self.save_name.clone().unwrap_or("".into());
+        let save_description = self.save_description.clone().unwrap_or("".into());
+        let mut save_path: PathBuf = path.into();
 
         // Use time to differentiate saves with the same name.
-        let save_time = save_time
+        let save_time = self
+            .save_time
+            .unwrap_or_else(|| SystemTime::now())
             .duration_since(UNIX_EPOCH)
             .unwrap_or(Duration::default());
 
@@ -157,7 +158,7 @@ mod tests {
 
             save_name.hash(&mut hasher);
             save_description.hash(&mut hasher);
-            simulation.board_area.hash(&mut hasher);
+            self.simulation_save.board_area.hash(&mut hasher);
             save_time.hash(&mut hasher);
 
             hasher.finish().to_string()
@@ -166,6 +167,29 @@ mod tests {
         save_path.push(file_name);
         save_path.set_extension("save");
         save_path
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    /// The generated save name will be correct.
+    fn name_generates_correctly() {
+        let temp_dir = tempfile::tempdir().expect("Able to create a temp dir");
+        let save_name = "save";
+        let save_description = "description";
+        // Use unix epoch for consistency
+        let save_time = SystemTime::UNIX_EPOCH;
+
+        let generate_save_name = SaveBuilder::new(Default::default())
+            .name(save_name)
+            .desciprtion(save_description)
+            .time(save_time)
+            .generate_save_name(temp_dir.path());
+
+        assert!(generate_save_name.ends_with("17457721250615400294.save"));
     }
 
     #[test]
@@ -190,22 +214,16 @@ mod tests {
         let save_description = "description";
         let save_time = SystemTime::now();
 
-        // Generate correct name.
-        let save_path = generate_save_name(
-            temp_dir.path(),
-            save_name,
-            save_description,
-            save_time,
-            &SimulationSave::default(),
-        );
-
-        // Call method
-        let save_board = SaveBuilder::new(Default::default())
+        let save_builder = SaveBuilder::new(Default::default())
             .name(save_name)
             .desciprtion(save_description)
-            .time(save_time)
-            .save(temp_dir.path())
-            .expect("Can save file");
+            .time(save_time);
+
+        // Generate correct name.
+        let save_path = save_builder.generate_save_name(temp_dir.path());
+
+        // Call method
+        let save_board = save_builder.save(temp_dir.path()).expect("Can save file");
 
         assert_eq!(save_board, save_path.into_boxed_path());
     }
@@ -218,22 +236,18 @@ mod tests {
         let save_description = "description";
         let save_time = SystemTime::now();
 
-        let save_path = generate_save_name(
-            temp_dir.path(),
-            save_name,
-            save_description,
-            save_time,
-            &Default::default(),
-        );
+        let save_builder = SaveBuilder::new(Default::default())
+            .name(save_name)
+            .desciprtion(save_description)
+            .time(save_time);
+
+        let save_path = save_builder.generate_save_name(temp_dir.path());
 
         // Write file with same name
         std::fs::write(save_path, "").expect("Can write file");
 
-        // Call method
-        let save_board = SaveBuilder::new(Default::default())
-            .name(save_name)
-            .desciprtion(save_description)
-            .time(save_time)
+        // Try save
+        let save_board = save_builder
             .save(temp_dir.path())
             .expect_err("Must error as file exists");
 
