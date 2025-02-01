@@ -9,8 +9,8 @@ use crate::{
 use egui::{pos2, Color32, Id, Painter, Rect};
 use egui_keybind::Bind;
 use gol_lib::{
-    board_data::BoardSave,
     communication::{SimulatorPacket, UiPacket},
+    persistence::{self, SaveBuilder},
     Area, BoardDisplay, Cell, GlobalPosition, SharedDisplay, SimulatorReceiver, UiSender,
 };
 use std::{
@@ -488,6 +488,7 @@ impl eframe::App for MyApp<'static> {
         }
 
         loop {
+            // Receive packets from simulatior
             let simulator_packet = match self.simulator_receiver.try_recv() {
                 Ok(simulator_packet) => simulator_packet,
                 Err(TryRecvError::Empty) => {
@@ -499,15 +500,15 @@ impl eframe::App for MyApp<'static> {
                 }
             };
 
+            // Act on the simulator packets
             match simulator_packet {
-                SimulatorPacket::BoardSave { board } => {
-                    BoardSave::new(
-                        self.save.save_name.clone(),
-                        self.save.save_description.clone(),
-                        None,
-                        board,
-                    )
-                    .save(DEFAULT_SAVE_PATH.clone());
+                SimulatorPacket::BoardSave {
+                    board: simulation_save,
+                } => {
+                    SaveBuilder::new(simulation_save)
+                        .name(self.save.save_name.clone())
+                        .desciprtion(self.save.save_description.clone())
+                        .save(self.settings.file.save_location.clone());
 
                     self.save.save_requested = false;
                 }

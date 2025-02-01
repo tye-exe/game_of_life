@@ -1,7 +1,11 @@
 use std::path::Path;
 
 use egui_file_dialog::FileDialog;
-use gol_lib::{board_data::SaveData, communication::UiPacket};
+use gol_lib::persistence::preview::PreviewParseError;
+use gol_lib::{
+    communication::UiPacket,
+    persistence::{self, preview::SavePreview},
+};
 
 use crate::{lang, settings::Settings};
 
@@ -88,7 +92,7 @@ impl Save {
 pub(crate) struct Load {
     pub(crate) show: bool,
 
-    saves: Option<Box<[SaveData]>>,
+    saves: Option<Box<[Result<SavePreview, PreviewParseError>]>>,
 }
 
 impl Default for Load {
