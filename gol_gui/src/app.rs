@@ -7,6 +7,7 @@ use crate::{
 };
 use egui::{pos2, Color32, Id, Painter, Rect};
 use egui_keybind::Bind;
+use egui_toast::{Toast, Toasts};
 use gol_lib::{
     communication::{SimulatorPacket, UiPacket},
     persistence::SaveBuilder,
@@ -65,6 +66,8 @@ pub struct MyApp<'a> {
     settings: Settings,
     /// Background threads for executing IO operations.
     io_thread: &'a ThreadPool,
+    /// Used for spawning toasts.
+    toasts: Toasts,
 }
 
 impl<'a> MyApp<'a> {
@@ -92,6 +95,7 @@ impl<'a> MyApp<'a> {
             save: Save::default(),
             load: Default::default(),
             io_thread,
+            toasts: Toasts::new(),
         };
 
         // Load stored configurations
@@ -201,6 +205,16 @@ impl<'a> MyApp<'a> {
                     let fps = 1.0 / secs_f64;
                     ui.label(fps.to_string());
                 }
+
+                ui.separator();
+                if ui.button("Spawn Toast").clicked() {
+                    self.toasts.add(
+                        Toast::new()
+                            .kind(egui_toast::ToastKind::Info)
+                            .options(toast_options())
+                            .text("Testing toasts!"),
+                    );
+                }
             });
     }
 
@@ -222,6 +236,8 @@ impl eframe::App for MyApp<'_> {
         let start_time = Instant::now();
         #[cfg(debug_assertions)]
         self.debug_window(ctx);
+
+        self.toasts.show(ctx);
 
         let mut to_send = Vec::new();
 
@@ -271,9 +287,12 @@ impl eframe::App for MyApp<'_> {
 
         self.check_keybinds(ctx);
 
-        self.save.update(ctx, &mut self.settings);
-        self.load
-            .update(&self.io_thread, &self.settings.file.save_location);
+        self.save.update(ctx, &mut self.settings, &mut self.toasts);
+        self.load.update(
+            self.io_thread,
+            &self.settings.file.save_location,
+            &mut self.toasts,
+        );
 
         self.save.draw(ctx, &mut to_send);
         self.load.draw(ctx);
@@ -576,4 +595,12 @@ impl ErrorData {
         log::error!("{} - {}", error_message, error);
         Self::from_error(error_message)
     }
+}
+
+/// Generates default toast options.
+pub(crate) fn toast_options() -> egui_toast::ToastOptions {
+    egui_toast::ToastOptions::default()
+        .duration_in_seconds(2.0)
+        .show_progress(true)
+        .show_icon(true)
 }

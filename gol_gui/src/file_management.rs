@@ -2,6 +2,7 @@ use std::path::Path;
 
 use egui::RichText;
 use egui_file_dialog::FileDialog;
+use egui_toast::{Toast, Toasts};
 use gol_lib::persistence::board_save::BoardSaveError;
 use gol_lib::persistence::preview::PreviewParseError;
 use gol_lib::{
@@ -10,6 +11,7 @@ use gol_lib::{
 };
 use oneshot::TryRecvError;
 
+use crate::app::toast_options;
 use crate::{lang, settings::Settings};
 
 lang! {
@@ -18,21 +20,14 @@ lang! {
     DESCRIPTION, "Description:";
     BUTTON, "Save";
     LOAD_WINDOW, "Load Board";
-    FOLDER, "Folder"
+    FOLDER, "Folder";
+    SAVE_SUCCESS, "Successfully saved board.";
+    SAVE_ERROR, "Unable to save board:";
+    SAVE_UNKNOWN, "Cannot verify save success.";
+    LOAD_FAILED, "Cannot retrieve save previews."
 }
 
 const LOAD_GRID: &str = "Load Grid";
-
-#[derive(thiserror::Error, Debug)]
-pub enum ResponseError<Err: std::error::Error> {
-    /// The channel disconnected.
-    #[error("Receiving on a closed channel.")]
-    Disconnected,
-
-    /// The error from the channel.
-    #[error(transparent)]
-    ResponseError(#[from] Err),
-}
 
 /// The status regarding user save requests.
 #[derive(Default, kinded::Kinded)]
@@ -124,7 +119,7 @@ impl Save {
     /// Updates the internal state.
     ///
     /// This should be run every frame.
-    pub fn update(&mut self, ctx: &egui::Context, settings: &mut Settings) {
+    pub fn update(&mut self, ctx: &egui::Context, settings: &mut Settings, toasts: &mut Toasts) {
         // Constrain the file picker to the save directory
         if let Some(directory) = self.file_dialog.active_entry() {
             let inside_save = directory
@@ -147,29 +142,43 @@ impl Save {
 
         self.file_dialog.update(ctx);
 
-        let outcome;
-
         // If waiting for a save response, check if their has been a response.
         if let SaveStatus::Waiting { response_receiver } = &self.save_status {
             match response_receiver.try_recv() {
-                Ok(response) => outcome = response.map_err(|e| e.into()),
-                Err(TryRecvError::Empty) => return,
-                Err(TryRecvError::Disconnected) => outcome = Err(ResponseError::Disconnected),
-            }
-        } else {
-            return;
-        }
+                Ok(response) => {
+                    match response {
+                        Ok(_) => {
+                            toasts.add(
+                                Toast::new()
+                                    .kind(egui_toast::ToastKind::Info)
+                                    .options(toast_options())
+                                    .text(SAVE_SUCCESS),
+                            );
+                        }
+                        Err(err) => {
+                            toasts.add(
+                                Toast::new()
+                                    .kind(egui_toast::ToastKind::Error)
+                                    .options(toast_options())
+                                    .text(format!("{SAVE_ERROR} {err}",)),
+                            );
+                        }
+                    }
+                    self.save_status = SaveStatus::Idle;
+                }
+                Err(TryRecvError::Disconnected) => {
+                    toasts.add(
+                        Toast::new()
+                            .kind(egui_toast::ToastKind::Warning)
+                            .options(toast_options())
+                            .text(SAVE_UNKNOWN),
+                    );
 
-        match outcome {
-            Ok(path) => {
-                println!("Saved file at {path:?}")
-            }
-            Err(err) => {
-                eprintln!("Unable to save file: {err}")
+                    self.save_status = SaveStatus::Idle;
+                }
+                Err(TryRecvError::Empty) => (),
             }
         }
-
-        self.save_status = SaveStatus::Idle;
     }
 }
 
@@ -226,7 +235,12 @@ impl Load {
     /// Updates the load menu.
     ///
     /// This should be called every frame.
-    pub(crate) fn update(&mut self, io_thread: &threadpool::ThreadPool, save_location: &Path) {
+    pub(crate) fn update(
+        &mut self,
+        io_thread: &threadpool::ThreadPool,
+        save_location: &Path,
+        toats: &mut Toasts,
+    ) {
         match &self.saves {
             // If the saves have been loaded already then no work needs to be done.
             LoadState::Loaded(..) => {}
@@ -248,7 +262,12 @@ impl Load {
                 Ok(response) => self.saves = LoadState::Loaded(response),
                 Err(TryRecvError::Empty) => (),
                 Err(TryRecvError::Disconnected) => {
-                    eprintln!("Io Thread died");
+                    toats.add(
+                        Toast::new()
+                            .kind(egui_toast::ToastKind::Error)
+                            .options(toast_options())
+                            .text(LOAD_FAILED),
+                    );
                     self.saves = LoadState::Request
                 }
             },

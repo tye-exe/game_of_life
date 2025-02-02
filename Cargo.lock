@@ -1068,6 +1068,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "egui-toast"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2531762f801556e7b8c445feee7b5a790aca1d5bf4d4e09a66c73b807058816"
+dependencies = [
+ "egui",
+]
+
+[[package]]
 name = "egui-wgpu"
 version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1544,6 +1553,7 @@ dependencies = [
  "egui",
  "egui-file-dialog",
  "egui-keybind",
+ "egui-toast",
  "env_logger",
  "gol_lib",
  "gol_simple",
