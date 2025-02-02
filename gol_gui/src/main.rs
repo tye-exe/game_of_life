@@ -1,4 +1,11 @@
-use std::{error::Error, path::PathBuf, sync::LazyLock, thread, time::Duration};
+use std::{
+    any::Any,
+    error::Error,
+    path::PathBuf,
+    sync::{mpsc, LazyLock},
+    thread,
+    time::Duration,
+};
 
 use app::MyApp;
 use app_dirs2::{get_app_dir, get_app_root, AppDataType, AppInfo};
@@ -119,8 +126,7 @@ mod error_text {
         CREATE_SIMULATION_THREAD, "Unable to create thread for board simulation at OS level.";
         UI_INIT, "Unable to initialise UI graphical context.";
         SIM_THREAD_TERM, "Simulator thread was unable to gracefully terminate";
-        COMMAND_SIM_THREAD_TERM, "Unable to command similator thread to terminate.";
-        DIRECTORY_CREATION, "Unable to created required directory for this program to run."
+        COMMAND_SIM_THREAD_TERM, "Unable to command similator thread to terminate."
     }
 }
 

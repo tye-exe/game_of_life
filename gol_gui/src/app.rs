@@ -4,13 +4,12 @@ use crate::{
     file_management::{Load, Save},
     lang,
     settings::Settings,
-    DEFAULT_SAVE_PATH,
 };
 use egui::{pos2, Color32, Id, Painter, Rect};
 use egui_keybind::Bind;
 use gol_lib::{
     communication::{SimulatorPacket, UiPacket},
-    persistence::{self, SaveBuilder},
+    persistence::SaveBuilder,
     Area, BoardDisplay, Cell, GlobalPosition, SharedDisplay, SimulatorReceiver, UiSender,
 };
 use std::{
@@ -29,9 +28,7 @@ pub(crate) const SETTINGS_PANEL: &str = "Settings_Panel";
 const DEBUG_WINDOW: &str = "Debug_Window";
 
 /// The struct that contains the data for the gui of my app.
-pub struct MyApp<'a> {
-    label: &'a str,
-
+pub struct MyApp {
     /// Whether the debug window is open or not.
     #[cfg(debug_assertions)]
     debug_menu_open: bool,
@@ -67,7 +64,7 @@ pub struct MyApp<'a> {
     settings: Settings,
 }
 
-impl MyApp<'static> {
+impl MyApp {
     pub fn new(
         creation_context: &eframe::CreationContext<'_>,
         display: SharedDisplay,
@@ -75,7 +72,6 @@ impl MyApp<'static> {
         simulator_receiver: SimulatorReceiver,
     ) -> Self {
         let mut my_app = MyApp {
-            label: "Hello world",
             display_update: display,
             display_cache: Default::default(),
             ui_sender,
@@ -215,7 +211,7 @@ impl MyApp<'static> {
     }
 }
 
-impl eframe::App for MyApp<'static> {
+impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         #[cfg(debug_assertions)]
         let start_time = Instant::now();
@@ -271,7 +267,7 @@ impl eframe::App for MyApp<'static> {
         self.check_keybinds(ctx);
 
         self.save.draw(ctx, &mut to_send, &mut self.settings);
-        self.load.draw(ctx);
+        self.load.draw(ctx, &self.settings.file.save_location);
 
         // Stores the size the board will take up.
         let mut board_rect = Rect::from_min_max(
