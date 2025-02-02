@@ -37,6 +37,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     let simulator = gol_lib::start_simulator(board, ui_receiver, simulator_sender)
         .inspect_err(|_| eprintln!("{}", error_text::CREATE_SIMULATION_THREAD))?;
 
+    // Start IO thread.
+    let io_threads = threadpool::Builder::new()
+        .num_threads(1)
+        .thread_name("Background IO thread".to_owned())
+        .build();
+
     // Start UI.
     let native_options = eframe::NativeOptions {
         // Takes path to file, not dir.
@@ -54,6 +60,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 shared_display,
                 ui_sender.clone(),
                 simulator_receiver,
+                &io_threads,
             )))
         }),
     )
@@ -66,6 +73,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // The retuned error does not implement the Error trait so panic instead.
     simulator.join().expect(error_text::SIM_THREAD_TERM);
+
+    io_threads.join();
 
     Ok(())
 }

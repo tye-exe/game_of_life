@@ -16,6 +16,7 @@ use std::{
     sync::mpsc::TryRecvError,
     time::{Duration, Instant},
 };
+use threadpool::ThreadPool;
 
 /// The egui id for the board where the cells are being displayed.
 const BOARD_ID: &str = "board";
@@ -28,7 +29,7 @@ pub(crate) const SETTINGS_PANEL: &str = "Settings_Panel";
 const DEBUG_WINDOW: &str = "Debug_Window";
 
 /// The struct that contains the data for the gui of my app.
-pub struct MyApp {
+pub struct MyApp<'a> {
     /// Whether the debug window is open or not.
     #[cfg(debug_assertions)]
     debug_menu_open: bool,
@@ -62,14 +63,17 @@ pub struct MyApp {
 
     /// The persistent settings.
     settings: Settings,
+    /// Background threads for executing IO operations.
+    io_thread: &'a ThreadPool,
 }
 
-impl MyApp {
+impl<'a> MyApp<'a> {
     pub fn new(
         creation_context: &eframe::CreationContext<'_>,
         display: SharedDisplay,
         ui_sender: UiSender,
         simulator_receiver: SimulatorReceiver,
+        io_thread: &'a ThreadPool,
     ) -> Self {
         let mut my_app = MyApp {
             display_update: display,
@@ -87,6 +91,7 @@ impl MyApp {
             settings: Settings::default(),
             save: Save::default(),
             load: Default::default(),
+            io_thread,
         };
 
         // Load stored configurations
@@ -211,7 +216,7 @@ impl MyApp {
     }
 }
 
-impl eframe::App for MyApp {
+impl eframe::App for MyApp<'_> {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         #[cfg(debug_assertions)]
         let start_time = Instant::now();
@@ -266,8 +271,12 @@ impl eframe::App for MyApp {
 
         self.check_keybinds(ctx);
 
+        self.save.update();
+        self.load
+            .update(&self.io_thread, &self.settings.file.save_location);
+
         self.save.draw(ctx, &mut to_send, &mut self.settings);
-        self.load.draw(ctx, &self.settings.file.save_location);
+        self.load.draw(ctx);
 
         // Stores the size the board will take up.
         let mut board_rect = Rect::from_min_max(
@@ -501,12 +510,28 @@ impl eframe::App for MyApp {
                 SimulatorPacket::BoardSave {
                     board: simulation_save,
                 } => {
-                    SaveBuilder::new(simulation_save)
-                        .name(self.save.save_name.clone())
-                        .desciprtion(self.save.save_description.clone())
-                        .save(self.settings.file.save_location.clone());
+                    let name = self.save.get_name().to_owned();
+                    let description = self.save.get_description().to_owned();
+                    let save_path = self.settings.file.save_location.clone();
 
-                    self.save.save_requested = false;
+                    let (tx, rx) = oneshot::channel();
+
+                    self.save.set_waiting(rx);
+                    // Run task in IO thread
+                    self.io_thread.execute(move || {
+                        std::thread::sleep(Duration::from_secs(1));
+
+                        let _ = tx
+                            .send(
+                                SaveBuilder::new(simulation_save)
+                                    .name(name)
+                                    .desciprtion(description)
+                                    .save(save_path),
+                            )
+                            .inspect_err(|e| {
+                                eprintln!("Could not communicate with ui thread: {e}")
+                            });
+                    });
                 }
                 SimulatorPacket::BlueprintSave { blueprint } => todo!(),
             }
