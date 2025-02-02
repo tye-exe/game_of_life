@@ -271,11 +271,11 @@ impl eframe::App for MyApp<'_> {
 
         self.check_keybinds(ctx);
 
-        self.save.update();
+        self.save.update(ctx, &mut self.settings);
         self.load
             .update(&self.io_thread, &self.settings.file.save_location);
 
-        self.save.draw(ctx, &mut to_send, &mut self.settings);
+        self.save.draw(ctx, &mut to_send);
         self.load.draw(ctx);
 
         // Stores the size the board will take up.

@@ -17,7 +17,8 @@ lang! {
     NAME, "Name:";
     DESCRIPTION, "Description:";
     BUTTON, "Save";
-    LOAD_WINDOW, "Load Board"
+    LOAD_WINDOW, "Load Board";
+    FOLDER, "Folder"
 }
 
 const LOAD_GRID: &str = "Load Grid";
@@ -80,69 +81,72 @@ impl Save {
     }
 
     /// Draws the save menu if it should be shown.
-    pub(crate) fn draw(
-        &mut self,
-        ctx: &egui::Context,
-        to_send: &mut Vec<UiPacket>,
-        settings: &mut Settings,
-    ) {
+    pub(crate) fn draw(&mut self, ctx: &egui::Context, to_send: &mut Vec<UiPacket>) {
         egui::Window::new(WINDOW)
             .open(&mut (self.show))
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
-                    ui.label(NAME);
-                    ui.text_edit_singleline(&mut self.save_name);
-                });
-
-                ui.horizontal(|ui| {
-                    ui.label(DESCRIPTION);
-                    ui.text_edit_singleline(&mut self.save_description);
-                });
-
-                if ui.button("Folder").clicked() {
-                    self.file_dialog = FileDialog::new();
-                    self.file_dialog.pick_directory();
-                }
-
-                // Only allow one save to be requested at a time
-                if ui.button(BUTTON).clicked() && self.save_status.kind() == SaveStatusKind::Idle {
-                    self.save_status = SaveStatus::Request;
-                    to_send.push(UiPacket::SaveBoard);
-                }
-
-                // Show a spinner whilst waiting for save
-                if self.save_status.kind() == SaveStatusKind::Waiting {
-                    ui.spinner();
-                }
-
-                // Constrain the file picker to the save directory
-                if let Some(directory) = self.file_dialog.active_entry() {
-                    let inside_save = directory
-                        .as_path()
-                        .canonicalize()
-                        .map(|dir_path| {
-                            dir_path
-                                .to_path_buf()
-                                .starts_with(settings.file.save_location.clone())
-                        })
-                        // Being constrained is not critical so "fail open"
-                        .unwrap_or(true);
-
-                    if !inside_save {
-                        self.file_dialog = FileDialog::new()
-                            .initial_directory(settings.file.save_location.clone());
+                    if ui.button(FOLDER).clicked() {
+                        self.file_dialog = FileDialog::new();
                         self.file_dialog.pick_directory();
                     }
-                }
 
-                self.file_dialog.update(ctx);
+                    // Gray out the button if a save has been requested.
+                    let button = ui.add_enabled(
+                        self.save_status.kind() != SaveStatusKind::Waiting,
+                        egui::Button::new(BUTTON),
+                    );
+                    // Only allow one save to be requested at a time.
+                    if button.clicked() && self.save_status.kind() == SaveStatusKind::Idle {
+                        self.save_status = SaveStatus::Request;
+                        to_send.push(UiPacket::SaveBoard);
+                    }
+
+                    // Show spinner in right corner.
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        // Show a spinner whilst waiting for save.
+                        if self.save_status.kind() == SaveStatusKind::Waiting {
+                            ui.spinner();
+                        }
+                    });
+                });
+
+                ui.separator();
+
+                ui.label(NAME);
+                ui.text_edit_singleline(&mut self.save_name);
+
+                ui.label(DESCRIPTION);
+                ui.text_edit_multiline(&mut self.save_description);
             });
     }
 
     /// Updates the internal state.
     ///
     /// This should be run every frame.
-    pub fn update(&mut self) {
+    pub fn update(&mut self, ctx: &egui::Context, settings: &mut Settings) {
+        // Constrain the file picker to the save directory
+        if let Some(directory) = self.file_dialog.active_entry() {
+            let inside_save = directory
+                .as_path()
+                .canonicalize()
+                .map(|dir_path| {
+                    dir_path
+                        .to_path_buf()
+                        .starts_with(settings.file.save_location.clone())
+                })
+                // Being constrained is not critical so "fail open"
+                .unwrap_or(true);
+
+            if !inside_save {
+                self.file_dialog =
+                    FileDialog::new().initial_directory(settings.file.save_location.clone());
+                self.file_dialog.pick_directory();
+            }
+        }
+
+        self.file_dialog.update(ctx);
+
         let outcome;
 
         // If waiting for a save response, check if their has been a response.
