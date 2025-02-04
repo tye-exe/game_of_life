@@ -142,7 +142,7 @@ impl Save {
 
         self.file_dialog.update(ctx);
 
-        // If waiting for a save response, check if their has been a response.
+        // If waiting for a save response, check if there has been a response.
         if let SaveStatus::Waiting { response_receiver } = &self.save_status {
             match response_receiver.try_recv() {
                 Ok(response) => {
@@ -268,7 +268,8 @@ impl Load {
                             .options(toast_options())
                             .text(LOAD_FAILED),
                     );
-                    self.saves = LoadState::Request
+                    // Load an empty list to revent endless failed requests.
+                    self.saves = LoadState::Loaded(Box::new([]));
                 }
             },
         }
