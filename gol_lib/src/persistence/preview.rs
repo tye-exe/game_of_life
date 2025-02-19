@@ -2,38 +2,6 @@ use std::{path::Path, time::Duration};
 
 use super::{load, ParseError};
 
-/// The errors that can occur when attempting to parse a [`SavePreview`] from a save file.
-#[derive(thiserror::Error, Debug)]
-#[cfg_attr(test, derive(kinded::Kinded))]
-pub enum PreviewParseError {
-    /// Encountered an error whilst traversing files in save location.
-    #[error("Failed to parse possible save files: {0}")]
-    FileSearch(#[from] walkdir::Error),
-    /// Unable to read file.
-    #[error("Unable to read save file: {error}")]
-    FileParse {
-        error: std::io::Error,
-        path: Box<Path>,
-    },
-    /// The file is not a valid save file.
-    #[error("File is not a valid save file: {error}")]
-    InvalidData {
-        error: serde_json::Error,
-        path: Box<Path>,
-    },
-}
-
-impl PreviewParseError {
-    /// The path to the file that cause the parse error. Or `None` if the path cannot be determined.
-    pub fn path(&self) -> Option<&Path> {
-        match self {
-            PreviewParseError::FileSearch(error) => error.path(),
-            PreviewParseError::FileParse { path, .. } => Some(path),
-            PreviewParseError::InvalidData { path, .. } => Some(path),
-        }
-    }
-}
-
 /// Finds and parses [`SavePreview`]s recursively from the given directory.
 pub fn load_preview<'a>(
     save_location: impl Into<&'a Path>,
