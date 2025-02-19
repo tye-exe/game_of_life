@@ -2,10 +2,10 @@ use std::{path::Path, time::Duration};
 
 use super::{load, ParseError};
 
-/// Finds and parses [`SavePreview`]s recursively from the given directory.
+/// Finds and parses [`SavePreview`]s from the given directory.
 pub fn load_preview<'a>(
     save_location: impl Into<&'a Path>,
-) -> Box<[Result<SavePreview, ParseError>]> {
+) -> Result<Box<[Result<SavePreview, ParseError>]>, std::io::Error> {
     load(save_location)
 }
 
@@ -76,7 +76,7 @@ mod tests {
         let temp_dir = tempfile::tempdir().expect("Able to create temp dir");
 
         let parse_saves = load_preview(temp_dir.path());
-        assert!(parse_saves.is_empty());
+        assert!(parse_saves.unwrap().is_empty());
     }
 
     #[test]
@@ -89,28 +89,7 @@ mod tests {
         path_buf.push("Invalid");
         std::fs::write(path_buf, "Invalid!!!").expect("Able to write file");
 
-        let parse_saves = load_preview(temp_dir.path());
-        assert_eq!(parse_saves.len(), 1);
-
-        // Must return with invalid data error
-        let save_error = parse_saves.get(0).unwrap().as_ref().unwrap_err();
-        assert_eq!(save_error.kind(), ParseErrorKind::InvalidData)
-    }
-
-    #[test]
-    fn invalid_in_sub_dir() {
-        let temp_dir = tempfile::tempdir().expect("Able to create temp dir");
-        let mut path_buf = temp_dir.path().to_path_buf();
-
-        // Create sub-dir
-        path_buf.push("sub_dir");
-        std::fs::create_dir(&path_buf).expect("Able to make sub dir");
-
-        // Create invalid file
-        path_buf.push("Invalid");
-        std::fs::write(path_buf, "Invalid!!!").expect("Able to write file");
-
-        let parse_saves = load_preview(temp_dir.path());
+        let parse_saves = load_preview(temp_dir.path()).unwrap();
         assert_eq!(parse_saves.len(), 1);
 
         // Must return with invalid data error
@@ -135,46 +114,7 @@ mod tests {
             .save(temp_dir.path())
             .expect("Can save file");
 
-        let parse_saves = load_preview(temp_dir.path());
-        assert_eq!(parse_saves.len(), 1);
-
-        assert_eq!(
-            parse_saves.get(0).unwrap().as_ref().unwrap(),
-            &SavePreview {
-                version: CURRENT_SAVE_VERSION,
-                name: save_name.into(),
-                description: save_description.into(),
-                generation: 0,
-                time: save_time
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap_or(Duration::default()),
-                tags: save_tags
-            }
-        );
-    }
-
-    #[test]
-    /// A valid save in a sub-dir should parse correctly
-    fn valid_in_sub_dir() {
-        let temp_dir = tempfile::tempdir().expect("Able to create temp dir");
-        let save_name = "name";
-        let save_description = "description";
-        let save_time = SystemTime::now();
-        let save_tags = Box::new(["test".to_owned().into_boxed_str()]);
-
-        let mut path = temp_dir.path().to_path_buf();
-        path.push("sub_dir");
-        std::fs::create_dir(&path).expect("Can create subdir");
-
-        let path = SaveBuilder::new(Default::default())
-            .name(save_name)
-            .desciprtion(save_description)
-            .time(save_time)
-            .tags(save_tags.clone())
-            .save(temp_dir.path())
-            .expect("Can save file");
-
-        let parse_saves = load_preview(temp_dir.path());
+        let parse_saves = load_preview(temp_dir.path()).unwrap();
         assert_eq!(parse_saves.len(), 1);
 
         assert_eq!(
@@ -219,7 +159,7 @@ mod tests {
             .save(temp_dir.path())
             .expect("Can save file");
 
-        let parse_saves = load_preview(temp_dir.path());
+        let parse_saves = load_preview(temp_dir.path()).unwrap();
         assert_eq!(parse_saves.len(), 2);
 
         // Get "correct" saves
@@ -269,7 +209,7 @@ mod tests {
         path_buf.push("Invalid");
         std::fs::write(path_buf.clone(), "Invalid!!!").expect("Able to write file");
 
-        let parse_saves = load_preview(temp_dir.path());
+        let parse_saves = load_preview(temp_dir.path()).unwrap();
         assert_eq!(parse_saves.len(), 1);
 
         // Must return with invalid data error

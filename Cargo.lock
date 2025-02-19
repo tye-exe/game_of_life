@@ -1579,7 +1579,6 @@ dependencies = [
  "spin_sleep_util",
  "tempfile",
  "thiserror 2.0.11",
- "walkdir",
 ]
 
 [[package]]

@@ -13,7 +13,7 @@ derive_more = { version = "1.0.0", features = ["full"] }
 spin_sleep_util = "0.1.1"
 bitvec = { version = "1.0.1", features = ["serde"] }
 app_dirs2 = "2.5.5"
-walkdir = "2.5.0"
+# walkdir = "2.5.0"
 thiserror = "2.0.11"
 
 [dev-dependencies]

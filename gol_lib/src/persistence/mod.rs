@@ -13,7 +13,6 @@ pub use board_load::load_save;
 pub use board_save::SaveBuilder;
 pub use preview::load_preview;
 use serde::de::DeserializeOwned;
-use walkdir::WalkDir;
 
 use crate::{Area, GlobalPosition};
 use bitvec::boxed::BitBox;
@@ -63,9 +62,6 @@ impl SimulationBlueprint {
 #[derive(thiserror::Error, Debug)]
 #[cfg_attr(test, derive(kinded::Kinded))]
 pub enum ParseError {
-    /// Encountered an error whilst traversing files.
-    #[error("Failed to parse possible save files: {0}")]
-    FileSearch(#[from] walkdir::Error),
     /// Unable to read file.
     #[error("Unable to read save file: {0}")]
     FileParse(#[from] std::io::Error),
@@ -74,29 +70,44 @@ pub enum ParseError {
     InvalidData(#[from] serde_json::Error),
 }
 
-/// Finds and parses `Data` recursively from the given directory.
+/// Finds and parses `Data` instances from the given directory.
+///
+/// Returns `Err` if the given directory cannot be read from.
+/// Otherwise an array of parsed data/errors will be returned.
 fn load<'a, Data: DeserializeOwned>(
     save_location: impl Into<&'a Path>,
-) -> Box<[Result<Data, ParseError>]> {
-    WalkDir::new(save_location.into())
-        .follow_links(true)
-        .into_iter()
-        // Only parse files
-        .filter_map(|file| match file {
-            Ok(file) if file.file_type().is_file() => Some(Ok(file)),
-            Ok(_) => None,
-            Err(err) => Some(Err(err.into())),
-        })
-        // Attempt to parse file
-        .map(|file| match file {
-            Ok(file) => {
-                let open = File::open(file.path())?;
-                let content: Data = serde_json::from_reader(open)?;
-                Ok(content)
-            }
-            Err(err) => Err(err),
-        })
-        .collect()
+) -> Result<Box<[Result<Data, ParseError>]>, std::io::Error> {
+    match std::fs::read_dir(save_location.into()) {
+        Err(err) => Err(err),
+        Ok(dir_content) => Ok(dir_content
+            .into_iter()
+            // Try to read files
+            .filter_map(|dir_content| match dir_content {
+                // Cannot read file
+                Err(err) => Some(Err(ParseError::FileParse(err))),
+                Ok(content) => match content.file_type() {
+                    Err(err) => Some(Err(ParseError::FileParse(err))),
+                    // Remove directories from iter
+                    Ok(file_type) => {
+                        if file_type.is_file() {
+                            Some(Ok(content))
+                        } else {
+                            None
+                        }
+                    }
+                },
+            })
+            // Parse file content
+            .map(|file| match file {
+                Ok(file) => {
+                    let open = File::open(file.path())?;
+                    let content: Data = serde_json::from_reader(open)?;
+                    Ok(content)
+                }
+                Err(err) => Err(err),
+            })
+            .collect()),
+    }
 }
 
 /// The data that a save of a simulation consists of.
