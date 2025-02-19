@@ -1,6 +1,4 @@
-use crate::persistence::CURRENT_SAVE_VERSION;
 use std::{path::Path, time::Duration};
-use walkdir::WalkDir;
 
 use super::{load, ParseError};
 
@@ -52,13 +50,13 @@ pub struct SavePreview {
     version: u16,
 
     /// The name of the save. This is not the name of the save file.
-    save_name: Box<str>,
+    name: Box<str>,
     /// A description of the save.
-    save_description: Box<str>,
+    description: Box<str>,
     /// The generation this save was made on.
     generation: u64,
     /// The time the save was made.
-    save_time: Duration,
+    time: Duration,
 
     /// The tags this save has.
     tags: Box<[Box<str>]>,
@@ -71,13 +69,13 @@ impl SavePreview {
     }
 
     /// The name of the save. This is not the name of the save file.
-    pub fn get_save_name(&self) -> &str {
-        &self.save_name
+    pub fn get_name(&self) -> &str {
+        &self.name
     }
 
     /// The description for the save.
-    pub fn get_save_description(&self) -> &str {
-        &self.save_description
+    pub fn get_description(&self) -> &str {
+        &self.description
     }
 
     /// The generation the save was made on.
@@ -87,7 +85,7 @@ impl SavePreview {
 
     /// The time the save was made.
     pub fn get_time(&self) -> Duration {
-        self.save_time
+        self.time
     }
 
     /// The tags this save is part of.
@@ -100,7 +98,7 @@ impl SavePreview {
 mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use crate::persistence::{board_save::SaveBuilder, ParseErrorKind};
+    use crate::persistence::{board_save::SaveBuilder, ParseErrorKind, CURRENT_SAVE_VERSION};
 
     use super::*;
 
@@ -176,10 +174,10 @@ mod tests {
             parse_saves.get(0).unwrap().as_ref().unwrap(),
             &SavePreview {
                 version: CURRENT_SAVE_VERSION,
-                save_name: save_name.into(),
-                save_description: save_description.into(),
+                name: save_name.into(),
+                description: save_description.into(),
                 generation: 0,
-                save_time: save_time
+                time: save_time
                     .duration_since(UNIX_EPOCH)
                     .unwrap_or(Duration::default()),
                 tags: save_tags
@@ -215,10 +213,10 @@ mod tests {
             parse_saves.get(0).unwrap().as_ref().unwrap(),
             &SavePreview {
                 version: CURRENT_SAVE_VERSION,
-                save_name: save_name.into(),
-                save_description: save_description.into(),
+                name: save_name.into(),
+                description: save_description.into(),
                 generation: 0,
-                save_time: save_time
+                time: save_time
                     .duration_since(UNIX_EPOCH)
                     .unwrap_or(Duration::default()),
                 tags: save_tags
@@ -282,10 +280,10 @@ mod tests {
             valid.unwrap(),
             &SavePreview {
                 version: CURRENT_SAVE_VERSION,
-                save_name: save_name.into(),
-                save_description: save_description.into(),
+                name: save_name.into(),
+                description: save_description.into(),
                 generation: 0,
-                save_time: save_time
+                time: save_time
                     .duration_since(UNIX_EPOCH)
                     .unwrap_or(Duration::default()),
                 tags: save_tags

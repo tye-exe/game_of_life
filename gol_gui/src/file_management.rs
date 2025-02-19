@@ -301,14 +301,14 @@ fn show_grid(
 
 /// Changes the given ui to display a valid save file.
 fn format_valid(ui: &mut egui::Ui, save: &SavePreview) {
-    let text = save.get_save_name().trim().to_owned();
+    let text = save.get_name().trim().to_owned();
     if text.is_empty() {
         ui.heading(RichText::new("No Name").italics());
     } else {
         ui.heading(text);
     }
 
-    ui.label(save.get_save_description());
+    ui.label(save.get_description());
     ui.label(format!("Generation: {}", save.get_generation()));
 }
 

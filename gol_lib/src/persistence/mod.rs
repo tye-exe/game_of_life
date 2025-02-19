@@ -105,11 +105,11 @@ fn load<'a, Data: DeserializeOwned>(
 pub struct SaveData {
     version: u16,
 
-    save_name: Box<str>,
-    save_description: Box<str>,
+    name: Box<str>,
+    description: Box<str>,
     tags: Box<[Box<str>]>,
 
-    save_time: Duration,
+    time: Duration,
     view_position: Option<GlobalPosition>,
 
     #[serde(flatten)]

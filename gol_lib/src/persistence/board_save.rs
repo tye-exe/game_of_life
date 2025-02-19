@@ -24,11 +24,11 @@ pub enum BoardSaveError {
 /// Builder for easily creating a save.
 #[cfg_attr(any(test), derive(Debug, PartialEq))]
 pub struct SaveBuilder {
-    save_name: Option<Box<str>>,
-    save_description: Option<Box<str>>,
-    save_tags: Option<Box<[Box<str>]>>,
+    name: Option<Box<str>>,
+    description: Option<Box<str>>,
+    tags: Option<Box<[Box<str>]>>,
 
-    save_time: Option<SystemTime>,
+    time: Option<SystemTime>,
     view_position: Option<GlobalPosition>,
 
     simulation_save: SimulationSave,
@@ -39,23 +39,23 @@ impl SaveBuilder {
     pub fn new(simulation_save: SimulationSave) -> Self {
         Self {
             simulation_save,
-            save_name: None,
-            save_description: None,
-            save_time: None,
+            name: None,
+            description: None,
+            time: None,
             view_position: None,
-            save_tags: None,
+            tags: None,
         }
     }
 
     /// The name of the save. This is not the filename.
     pub fn name(mut self, name: impl Into<Box<str>>) -> Self {
-        self.save_name = Some(name.into());
+        self.name = Some(name.into());
         self
     }
 
     /// A description of the save.
     pub fn desciprtion(mut self, description: impl Into<Box<str>>) -> Self {
-        self.save_description = Some(description.into());
+        self.description = Some(description.into());
         self
     }
 
@@ -67,13 +67,13 @@ impl SaveBuilder {
 
     /// The time the save was created.
     pub fn time(mut self, time: SystemTime) -> Self {
-        self.save_time = Some(time);
+        self.time = Some(time);
         self
     }
 
     /// The tags this save belongs to.
     pub fn tags(mut self, tags: Box<[Box<str>]>) -> Self {
-        self.save_tags = Some(tags);
+        self.tags = Some(tags);
         self
     }
 }
@@ -85,10 +85,10 @@ impl SaveBuilder {
     /// The returned value is the file path to the saved file, including the filename. Or an error if one occurred.
     pub fn save(self, save_path: impl Into<PathBuf>) -> Result<Box<Path>, BoardSaveError> {
         let SaveBuilder {
-            save_name,
-            save_description,
-            save_time,
-            save_tags,
+            name: save_name,
+            description: save_description,
+            time: save_time,
+            tags: save_tags,
             view_position,
             simulation_save,
         } = self;
@@ -124,9 +124,9 @@ impl SaveBuilder {
 
         let data = SaveData {
             version: CURRENT_SAVE_VERSION,
-            save_name,
-            save_description,
-            save_time,
+            name: save_name,
+            description: save_description,
+            time: save_time,
             view_position,
             simulation_save,
             tags: save_tags,
@@ -154,13 +154,13 @@ impl SaveBuilder {
         };
 
         let mut save_path: PathBuf = path.into();
-        let save_name = self.save_name.clone().unwrap_or("".into());
-        let save_description = self.save_description.clone().unwrap_or("".into());
-        let save_tags = self.save_tags.clone().unwrap_or(Box::new([]));
+        let save_name = self.name.clone().unwrap_or("".into());
+        let save_description = self.description.clone().unwrap_or("".into());
+        let save_tags = self.tags.clone().unwrap_or(Box::new([]));
 
         // Use time to differentiate saves with the same name.
         let save_time = self
-            .save_time
+            .time
             .unwrap_or_else(|| SystemTime::now())
             .duration_since(UNIX_EPOCH)
             .unwrap_or(Duration::default());
