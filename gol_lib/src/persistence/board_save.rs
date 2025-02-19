@@ -26,6 +26,8 @@ pub enum BoardSaveError {
 pub struct SaveBuilder {
     save_name: Option<Box<str>>,
     save_description: Option<Box<str>>,
+    save_tags: Option<Box<[Box<str>]>>,
+
     save_time: Option<SystemTime>,
     view_position: Option<GlobalPosition>,
 
@@ -41,6 +43,7 @@ impl SaveBuilder {
             save_description: None,
             save_time: None,
             view_position: None,
+            save_tags: None,
         }
     }
 
@@ -67,6 +70,12 @@ impl SaveBuilder {
         self.save_time = Some(time);
         self
     }
+
+    /// The tags this save belongs to.
+    pub fn tags(mut self, tags: Box<[Box<str>]>) -> Self {
+        self.save_tags = Some(tags);
+        self
+    }
 }
 
 impl SaveBuilder {
@@ -79,6 +88,7 @@ impl SaveBuilder {
             save_name,
             save_description,
             save_time,
+            save_tags,
             view_position,
             simulation_save,
         } = self;
@@ -86,6 +96,7 @@ impl SaveBuilder {
         let mut save_path: PathBuf = save_path.into();
         let save_name = save_name.unwrap_or("".into());
         let save_description = save_description.unwrap_or("".into());
+        let save_tags = save_tags.unwrap_or(Box::new([]));
 
         // Use time to differentiate saves with the same name.
         let save_time = save_time
@@ -102,6 +113,7 @@ impl SaveBuilder {
             save_description.hash(&mut hasher);
             simulation_save.board_area.hash(&mut hasher);
             save_time.hash(&mut hasher);
+            save_tags.hash(&mut hasher);
 
             hasher.finish().to_string()
         };
@@ -117,6 +129,7 @@ impl SaveBuilder {
             save_time,
             view_position,
             simulation_save,
+            tags: save_tags,
         };
 
         // Conversion into string can fail somehow?
@@ -140,9 +153,10 @@ impl SaveBuilder {
             time::UNIX_EPOCH,
         };
 
+        let mut save_path: PathBuf = path.into();
         let save_name = self.save_name.clone().unwrap_or("".into());
         let save_description = self.save_description.clone().unwrap_or("".into());
-        let mut save_path: PathBuf = path.into();
+        let save_tags = self.save_tags.clone().unwrap_or(Box::new([]));
 
         // Use time to differentiate saves with the same name.
         let save_time = self
@@ -160,6 +174,7 @@ impl SaveBuilder {
             save_description.hash(&mut hasher);
             self.simulation_save.board_area.hash(&mut hasher);
             save_time.hash(&mut hasher);
+            save_tags.hash(&mut hasher);
 
             hasher.finish().to_string()
         };
@@ -180,6 +195,8 @@ mod tests {
         let temp_dir = tempfile::tempdir().expect("Able to create a temp dir");
         let save_name = "save";
         let save_description = "description";
+        let save_tags = Box::new(["test".to_owned().into_boxed_str()]);
+
         // Use unix epoch for consistency
         let save_time = SystemTime::UNIX_EPOCH;
 
@@ -187,9 +204,10 @@ mod tests {
             .name(save_name)
             .desciprtion(save_description)
             .time(save_time)
+            .tags(save_tags)
             .generate_save_name(temp_dir.path());
 
-        assert!(generate_save_name.ends_with("17457721250615400294.save"));
+        assert!(generate_save_name.ends_with("9011655623179715335.save"));
     }
 
     #[test]

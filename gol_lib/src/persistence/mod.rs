@@ -107,6 +107,8 @@ pub struct SaveData {
 
     save_name: Box<str>,
     save_description: Box<str>,
+    tags: Box<[Box<str>]>,
+
     save_time: Duration,
     view_position: Option<GlobalPosition>,
 
@@ -132,6 +134,9 @@ impl SaveData {
         todo!()
     }
     pub fn simulation_save(&self) -> SimulationSave {
+        todo!()
+    }
+    pub fn tags(&self) -> Box<[Box<str>]> {
         todo!()
     }
 }
