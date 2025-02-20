@@ -25,7 +25,9 @@ lang! {
     SAVE_ERROR, "Unable to save board:";
     SAVE_UNKNOWN, "Cannot verify save success.";
     LOAD_FAILED, "Cannot retrieve save previews.";
-    NO_SAVES, "There is no saved files."
+    NO_SAVES, "There is no saved files.";
+    ADD_TAG, "Add a new tag to this save.";
+    REMOVE_TAG, "Remove this tag from the save."
 }
 
 const LOAD_GRID: &str = "Load Grid";
@@ -51,8 +53,6 @@ pub(crate) struct Save {
     save_tags: Vec<String>,
 
     save_status: SaveStatus,
-
-    file_dialog: FileDialog,
 }
 
 impl Default for Save {
@@ -63,7 +63,6 @@ impl Default for Save {
             save_description: Default::default(),
             save_tags: vec!["".to_owned()],
             save_status: Default::default(),
-            file_dialog: Default::default(),
         }
     }
 }
@@ -128,8 +127,16 @@ impl Save {
                 ui.text_edit_multiline(&mut self.save_description);
 
                 ui.label(TAGS);
-                for ele in self.save_tags.iter_mut() {
-                    ui.text_edit_singleline(ele);
+                self.save_tags.retain_mut(|tag| {
+                    ui.horizontal(|ui| {
+                        ui.text_edit_singleline(tag);
+                        !ui.small_button("-").on_hover_text(REMOVE_TAG).clicked()
+                    })
+                    .inner
+                });
+
+                if ui.small_button("+").on_hover_text(ADD_TAG).clicked() {
+                    self.save_tags.push(String::new());
                 }
             });
     }
