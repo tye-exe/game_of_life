@@ -185,8 +185,6 @@ impl Save {
     }
 }
 
-type PreviewParse = Result<Box<[Result<SavePreview, ParseError>]>, std::io::Error>;
-
 #[derive(kinded::Kinded, Default)]
 enum LoadState {
     /// The preview will be requested.
@@ -194,10 +192,44 @@ enum LoadState {
     Request,
     /// Waiting for the preview response.
     Waiting {
-        receiver: oneshot::Receiver<PreviewParse>,
+        receiver: oneshot::Receiver<Result<Box<[Result<SavePreview, ParseError>]>, std::io::Error>>,
     },
     /// The loaded save previws.
-    Loaded(PreviewParse),
+    Loaded(Result<Box<[Preview]>, std::io::Error>),
+}
+
+struct Preview {
+    preview: Result<SavePreview, ParseError>,
+    selected: bool,
+}
+// enum Preview {
+//     Ok {
+//         preview: SavePreview,
+//         selected: bool,
+//     },
+//     Err {
+//         err: ParseError,
+//         selected: bool,
+//     },
+// }
+
+impl From<Result<SavePreview, ParseError>> for Preview {
+    fn from(value: Result<SavePreview, ParseError>) -> Self {
+        // match value {
+        //     Ok(preview) => Preview::Ok {
+        //         preview,
+        //         selected: false,
+        //     },
+        //     Err(err) => Preview::Err {
+        //         err,
+        //         selected: false,
+        //     },
+        // }
+        Self {
+            preview: value,
+            selected: false,
+        }
+    }
 }
 
 pub(crate) struct Load {
@@ -220,14 +252,64 @@ impl Load {
     pub(crate) fn draw(&mut self, ctx: &egui::Context) {
         egui::Window::new(LOAD_WINDOW)
             .open(&mut self.show)
-            .show(ctx, |ui| match &self.saves {
+            .show(ctx, |ui| match &mut self.saves {
                 // If the saves have been loaded draw them.
                 LoadState::Loaded(saves) => match saves {
                     Ok(saves) => {
-                        if saves.len() == 0 {
-                            ui.label(NO_SAVES);
+                        let saves_selected = saves
+                            .iter()
+                            .fold(0usize, |num, preview| num + preview.selected as usize);
+
+                        let reload = ui
+                            .horizontal(|ui| {
+                                ui.add_enabled(saves_selected == 1, egui::Button::new("Load"))
+                                    .on_disabled_hover_text("Only a single save must be selected")
+                                    .on_hover_text("Load the selected save.");
+                                ui.add_enabled(saves_selected > 0, egui::Button::new("Delete"))
+                                    .on_disabled_hover_text("More than one save must be selected")
+                                    .on_hover_text("Delete the selected save(s)");
+
+                                ui.with_layout(
+                                    egui::Layout::right_to_left(egui::Align::Center),
+                                    |ui| ui.button("Reload").clicked(),
+                                )
+                                .inner
+                            })
+                            .inner;
+
+                        if reload {
+                            self.saves = LoadState::Request;
                             return;
                         }
+
+                        ui.separator();
+
+                        ui.horizontal(|ui| {
+                            if ui.button("Select All").clicked() {
+                                saves.iter_mut().for_each(|save| save.selected = true);
+                            };
+                            if ui.button("Deselect All").clicked() {
+                                saves.iter_mut().for_each(|save| save.selected = false);
+                            };
+                        });
+
+                        // Add a defined border between the interaction buttons
+                        // and the displayed previews.
+                        //
+                        // Similar to egui::Separator
+                        egui::Frame::none()
+                            .fill(ui.visuals().widgets.noninteractive.bg_stroke.color)
+                            .rounding(egui::Rounding::same(1.0))
+                            .show(ui, |ui| {
+                                let available_space = if ui.is_sizing_pass() {
+                                    egui::Vec2::ZERO
+                                } else {
+                                    ui.available_size_before_wrap()
+                                };
+
+                                let space = egui::vec2(available_space.x, 10.0);
+                                ui.allocate_at_least(space, egui::Sense::hover());
+                            });
 
                         egui::ScrollArea::both().show(ui, |ui| {
                             egui::Grid::new(LOAD_GRID)
@@ -274,7 +356,15 @@ impl Load {
             }
             // Check for task completion.
             LoadState::Waiting { receiver } => match receiver.try_recv() {
-                Ok(response) => self.saves = LoadState::Loaded(response),
+                Ok(response) => {
+                    self.saves = LoadState::Loaded(response.map(|previews| {
+                        let mut vec = Vec::new();
+                        for save in previews {
+                            vec.push(save.into());
+                        }
+                        vec.into()
+                    }));
+                }
                 Err(TryRecvError::Empty) => (),
                 Err(TryRecvError::Disconnected) => {
                     toats.add(
@@ -292,23 +382,52 @@ impl Load {
 }
 
 /// Shows the grid of loaded files.
-fn show_grid(
-    saves: &Box<[Result<SavePreview, ParseError>]>,
-) -> impl FnOnce(&mut egui::Ui) + use<'_> {
+fn show_grid(saves: &mut Box<[Preview]>) -> impl FnOnce(&mut egui::Ui) + use<'_> {
     move |ui| {
-        for save in saves {
-            ui.vertical(|ui| {
-                match save {
-                    Ok(save) => {
-                        format_valid(ui, save);
-                    }
-                    Err(err) => {
-                        format_error(ui, err);
-                    }
-                }
+        let mut id = egui::Id::new(897234);
 
-                ui.separator();
-            });
+        for save in saves {
+            let response = &ui
+                .vertical(|ui| {
+                    // Highlight background if selected
+                    let fill = if save.selected {
+                        ui.ctx().theme().default_visuals().selection.bg_fill
+                    } else {
+                        egui::Color32::TRANSPARENT
+                    };
+
+                    egui::Frame::default().fill(fill).show(ui, |ui| {
+                        match &save.preview {
+                            Ok(preview) => {
+                                format_valid(ui, preview);
+                            }
+                            Err(err) => {
+                                format_error(ui, err);
+                            }
+                        }
+
+                        // Expand frame to fill entire area.
+                        // This allows the entire area to be highlighted.
+                        let available_space = if ui.is_sizing_pass() {
+                            egui::Vec2::ZERO
+                        } else {
+                            ui.available_size_before_wrap()
+                        };
+                        ui.allocate_at_least(available_space, egui::Sense::hover());
+                    });
+
+                    ui.separator();
+                })
+                .response;
+
+            let interact = ui.interact(response.interact_rect, id, egui::Sense::click());
+            // Increment ID to avoid overlap
+            id = id.with(90437);
+
+            if interact.clicked() {
+                save.selected = !save.selected;
+            }
+
             ui.end_row();
         }
     }
