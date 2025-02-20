@@ -65,9 +65,22 @@ pub enum ParseError {
     /// Unable to read file.
     #[error("Unable to read save file: {0}")]
     FileParse(#[from] std::io::Error),
-    /// The file contains invalid data
-    #[error("File is not a valid save file: {0}")]
-    InvalidData(#[from] serde_json::Error),
+    /// The file contains invalid data.
+    #[error("File '{path:?}' is not a valid save file: {serde_error}")]
+    InvalidData {
+        serde_error: serde_json::Error,
+        path: Box<Path>,
+    },
+}
+
+impl ParseError {
+    /// The path to the file that caused the error, if it is available.
+    pub fn file_path(&self) -> Option<&Path> {
+        match self {
+            ParseError::FileParse(..) => None,
+            ParseError::InvalidData { path, .. } => Some(&**path),
+        }
+    }
 }
 
 /// Finds and parses `Data` instances from the given directory.
@@ -77,17 +90,13 @@ pub enum ParseError {
 fn load<'a, Data: DeserializeOwned>(
     save_location: impl Into<&'a Path>,
 ) -> Result<Box<[Result<Data, ParseError>]>, std::io::Error> {
-    match std::fs::read_dir(save_location.into()) {
-        Err(err) => Err(err),
-        Ok(dir_content) => Ok(dir_content
-            .into_iter()
-            // Try to read files
-            .filter_map(|dir_content| match dir_content {
-                // Cannot read file
-                Err(err) => Some(Err(ParseError::FileParse(err))),
+    let parsed_data = std::fs::read_dir(save_location.into())?
+        .into_iter()
+        // Try to read files
+        .filter_map(|dir_content| {
+            // Only try to parse files
+            match dir_content {
                 Ok(content) => match content.file_type() {
-                    Err(err) => Some(Err(ParseError::FileParse(err))),
-                    // Remove directories from iter
                     Ok(file_type) => {
                         if file_type.is_file() {
                             Some(Ok(content))
@@ -95,19 +104,29 @@ fn load<'a, Data: DeserializeOwned>(
                             None
                         }
                     }
+                    // Cannot read file type
+                    Err(err) => Some(Err(ParseError::FileParse(err))),
                 },
-            })
-            // Parse file content
-            .map(|file| match file {
-                Ok(file) => {
-                    let open = File::open(file.path())?;
-                    let content: Data = serde_json::from_reader(open)?;
-                    Ok(content)
-                }
-                Err(err) => Err(err),
-            })
-            .collect()),
-    }
+                // Cannot read file
+                Err(err) => Some(Err(ParseError::FileParse(err))),
+            }
+        })
+        // Parse file content
+        .map(|file| {
+            let file = file?;
+            let open = File::open(file.path())?;
+
+            let content: Data =
+                serde_json::from_reader(open).map_err(|err| ParseError::InvalidData {
+                    serde_error: err,
+                    path: file.path().into_boxed_path(),
+                })?;
+
+            Ok(content)
+        })
+        .collect();
+
+    Ok(parsed_data)
 }
 
 /// The data that a save of a simulation consists of.
