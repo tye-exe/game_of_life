@@ -24,7 +24,8 @@ lang! {
     SAVE_SUCCESS, "Successfully saved board.";
     SAVE_ERROR, "Unable to save board:";
     SAVE_UNKNOWN, "Cannot verify save success.";
-    LOAD_FAILED, "Cannot retrieve save previews."
+    LOAD_FAILED, "Cannot retrieve save previews.";
+    NO_SAVES, "There is no saved files."
 }
 
 const LOAD_GRID: &str = "Load Grid";
@@ -217,7 +218,7 @@ impl Load {
                 LoadState::Loaded(saves) => match saves {
                     Ok(saves) => {
                         if saves.len() == 0 {
-                            ui.label("No saved files");
+                            ui.label(NO_SAVES);
                             return;
                         }
 
@@ -317,6 +318,17 @@ fn format_valid(ui: &mut egui::Ui, save: &SavePreview) {
 
     ui.label(save.get_description());
     ui.label(format!("Generation: {}", save.get_generation()));
+
+    // Get string representation of tags.
+    let tags = save
+        .get_tags()
+        .iter()
+        .fold("Tags:".to_owned(), |mut acc, tag| {
+            acc.push_str("\n  - ");
+            acc.push_str(tag);
+            acc
+        });
+    ui.label(tags);
 }
 
 /// Changes the given ui to display an invalid save file.
