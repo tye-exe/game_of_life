@@ -4,7 +4,7 @@ use egui::RichText;
 use egui_file_dialog::FileDialog;
 use egui_toast::{Toast, Toasts};
 use gol_lib::persistence::board_save::BoardSaveError;
-use gol_lib::persistence::preview::PreviewParseError;
+use gol_lib::persistence::ParseError;
 use gol_lib::{
     communication::UiPacket,
     persistence::{self, preview::SavePreview},
@@ -20,7 +20,7 @@ lang! {
     DESCRIPTION, "Description:";
     BUTTON, "Save";
     LOAD_WINDOW, "Load Board";
-    FOLDER, "Folder";
+    TAGS, "Tags:";
     SAVE_SUCCESS, "Successfully saved board.";
     SAVE_ERROR, "Unable to save board:";
     SAVE_UNKNOWN, "Cannot verify save success.";
@@ -43,15 +43,28 @@ pub enum SaveStatus {
     },
 }
 
-#[derive(Default)]
 pub(crate) struct Save {
     pub(crate) show: bool,
     save_name: String,
     save_description: String,
+    save_tags: Vec<String>,
 
     save_status: SaveStatus,
 
     file_dialog: FileDialog,
+}
+
+impl Default for Save {
+    fn default() -> Self {
+        Self {
+            show: Default::default(),
+            save_name: Default::default(),
+            save_description: Default::default(),
+            save_tags: vec!["".to_owned()],
+            save_status: Default::default(),
+            file_dialog: Default::default(),
+        }
+    }
 }
 
 impl Save {
@@ -61,6 +74,10 @@ impl Save {
 
     pub fn get_description(&self) -> &str {
         &self.save_description
+    }
+
+    pub fn get_tags(&self) -> &Vec<String> {
+        &self.save_tags
     }
 
     /// Changes the internal state from [SaveStatus::Request] to [SaveStatus::Waiting].
@@ -81,11 +98,6 @@ impl Save {
             .open(&mut (self.show))
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
-                    if ui.button(FOLDER).clicked() {
-                        self.file_dialog = FileDialog::new();
-                        self.file_dialog.pick_directory();
-                    }
-
                     // Gray out the button if a save has been requested.
                     let button = ui.add_enabled(
                         self.save_status.kind() != SaveStatusKind::Waiting,
@@ -113,6 +125,11 @@ impl Save {
 
                 ui.label(DESCRIPTION);
                 ui.text_edit_multiline(&mut self.save_description);
+
+                ui.label(TAGS);
+                for ele in self.save_tags.iter_mut() {
+                    ui.text_edit_singleline(ele);
+                }
             });
     }
 
@@ -120,28 +137,6 @@ impl Save {
     ///
     /// This should be run every frame.
     pub fn update(&mut self, ctx: &egui::Context, settings: &mut Settings, toasts: &mut Toasts) {
-        // Constrain the file picker to the save directory
-        if let Some(directory) = self.file_dialog.active_entry() {
-            let inside_save = directory
-                .as_path()
-                .canonicalize()
-                .map(|dir_path| {
-                    dir_path
-                        .to_path_buf()
-                        .starts_with(settings.file.save_location.clone())
-                })
-                // Being constrained is not critical so "fail open"
-                .unwrap_or(true);
-
-            if !inside_save {
-                self.file_dialog =
-                    FileDialog::new().initial_directory(settings.file.save_location.clone());
-                self.file_dialog.pick_directory();
-            }
-        }
-
-        self.file_dialog.update(ctx);
-
         // If waiting for a save response, check if there has been a response.
         if let SaveStatus::Waiting { response_receiver } = &self.save_status {
             match response_receiver.try_recv() {
@@ -182,6 +177,8 @@ impl Save {
     }
 }
 
+type PreviewParse = Result<Box<[Result<SavePreview, ParseError>]>, std::io::Error>;
+
 #[derive(kinded::Kinded, Default)]
 enum LoadState {
     /// The preview will be requested.
@@ -189,10 +186,10 @@ enum LoadState {
     Request,
     /// Waiting for the preview response.
     Waiting {
-        receiver: oneshot::Receiver<Box<[Result<SavePreview, PreviewParseError>]>>,
+        receiver: oneshot::Receiver<PreviewParse>,
     },
     /// The loaded save previws.
-    Loaded(Box<[Result<SavePreview, PreviewParseError>]>),
+    Loaded(PreviewParse),
 }
 
 pub(crate) struct Load {
@@ -217,14 +214,24 @@ impl Load {
             .open(&mut self.show)
             .show(ctx, |ui| match &self.saves {
                 // If the saves have been loaded draw them.
-                LoadState::Loaded(saves) => {
-                    egui::ScrollArea::both().show(ui, |ui| {
-                        egui::Grid::new(LOAD_GRID)
-                            .striped(true)
-                            .max_col_width(500.0)
-                            .show(ui, show_grid(saves));
-                    });
-                }
+                LoadState::Loaded(saves) => match saves {
+                    Ok(saves) => {
+                        if saves.len() == 0 {
+                            ui.label("No saved files");
+                            return;
+                        }
+
+                        egui::ScrollArea::both().show(ui, |ui| {
+                            egui::Grid::new(LOAD_GRID)
+                                .striped(true)
+                                .max_col_width(500.0)
+                                .show(ui, show_grid(saves));
+                        });
+                    }
+                    Err(err) => {
+                        ui.label(format!("Unable to parse save files: {err}"));
+                    }
+                },
                 // Shows a spinner whilst waiting for previews.
                 LoadState::Waiting { .. } | LoadState::Request => {
                     ui.spinner();
@@ -269,7 +276,7 @@ impl Load {
                             .text(LOAD_FAILED),
                     );
                     // Load an empty list to revent endless failed requests.
-                    self.saves = LoadState::Loaded(Box::new([]));
+                    self.saves = LoadState::Loaded(Ok(Box::new([])));
                 }
             },
         }
@@ -278,7 +285,7 @@ impl Load {
 
 /// Shows the grid of loaded files.
 fn show_grid(
-    saves: &Box<[Result<SavePreview, PreviewParseError>]>,
+    saves: &Box<[Result<SavePreview, ParseError>]>,
 ) -> impl FnOnce(&mut egui::Ui) + use<'_> {
     move |ui| {
         for save in saves {
@@ -313,11 +320,11 @@ fn format_valid(ui: &mut egui::Ui, save: &SavePreview) {
 }
 
 /// Changes the given ui to display an invalid save file.
-fn format_error(ui: &mut egui::Ui, err: &PreviewParseError) {
+fn format_error(ui: &mut egui::Ui, err: &ParseError) {
     ui.heading(RichText::new("Invalid Save").italics());
 
     let string_path = err
-        .path()
+        .file_path()
         .and_then(|path| path.to_str())
         .unwrap_or("Unable to get path");
 

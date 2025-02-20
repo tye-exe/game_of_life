@@ -531,7 +531,14 @@ impl eframe::App for MyApp<'_> {
                 } => {
                     let name = self.save.get_name().to_owned();
                     let description = self.save.get_description().to_owned();
+                    let mut tags = self.save.get_tags().clone();
                     let save_path = self.settings.file.save_location.clone();
+
+                    // Convert tags
+                    let tags = tags
+                        .iter_mut()
+                        .map(|tag| tag.clone().into_boxed_str())
+                        .collect();
 
                     let (tx, rx) = oneshot::channel();
 
@@ -545,6 +552,7 @@ impl eframe::App for MyApp<'_> {
                                 SaveBuilder::new(simulation_save)
                                     .name(name)
                                     .desciprtion(description)
+                                    .tags(tags)
                                     .save(save_path),
                             )
                             .inspect_err(|e| {
