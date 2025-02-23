@@ -14,7 +14,7 @@ pub fn load_preview<'a>(
 /// Contains the information about a board save, without actually containing the board save data.
 /// This is useful to load in as a preview for a save, without having to load the entire board into memory.
 #[cfg_attr(test, derive(Debug, PartialEq))]
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Clone)]
 pub struct SavePreview {
     /// The save file version.
     version: u16,
