@@ -3,7 +3,7 @@ use std::path::Path;
 use egui::RichText;
 use egui_file_dialog::FileDialog;
 use egui_toast::{Toast, Toasts};
-use gol_lib::persistence::board_save::BoardSaveError;
+use gol_lib::persistence::save::BoardSaveError;
 use gol_lib::persistence::ParseError;
 use gol_lib::{
     communication::UiPacket,
@@ -185,6 +185,7 @@ impl Save {
     }
 }
 
+/// The different states the load menu can be in.
 #[derive(kinded::Kinded, Default)]
 enum LoadState {
     /// The preview will be requested.
@@ -195,36 +196,24 @@ enum LoadState {
         receiver: oneshot::Receiver<Result<Box<[Result<SavePreview, ParseError>]>, std::io::Error>>,
     },
     /// The loaded save previws.
-    Loaded(Result<Box<[Preview]>, std::io::Error>),
+    Loaded {
+        previews: Result<Box<[Preview]>, std::io::Error>,
+        reload: bool,
+        load_selected: bool,
+        delete_selected: bool,
+    },
 }
 
+/// Contains a parsed preview.
 struct Preview {
+    /// The parsed preview.
     preview: Result<SavePreview, ParseError>,
+    /// Whether the preview has been selected by the user.
     selected: bool,
 }
-// enum Preview {
-//     Ok {
-//         preview: SavePreview,
-//         selected: bool,
-//     },
-//     Err {
-//         err: ParseError,
-//         selected: bool,
-//     },
-// }
 
 impl From<Result<SavePreview, ParseError>> for Preview {
     fn from(value: Result<SavePreview, ParseError>) -> Self {
-        // match value {
-        //     Ok(preview) => Preview::Ok {
-        //         preview,
-        //         selected: false,
-        //     },
-        //     Err(err) => Preview::Err {
-        //         err,
-        //         selected: false,
-        //     },
-        // }
         Self {
             preview: value,
             selected: false,
@@ -232,6 +221,7 @@ impl From<Result<SavePreview, ParseError>> for Preview {
     }
 }
 
+/// Responsible for loading and displaying [`SavePreview`]s to the user.
 pub(crate) struct Load {
     pub(crate) show: bool,
 
@@ -254,33 +244,38 @@ impl Load {
             .open(&mut self.show)
             .show(ctx, |ui| match &mut self.saves {
                 // If the saves have been loaded draw them.
-                LoadState::Loaded(saves) => match saves {
+                LoadState::Loaded {
+                    previews: saves,
+                    reload,
+                    load_selected,
+                    delete_selected,
+                } => match saves {
                     Ok(saves) => {
+                        // The number of selected saves.
                         let saves_selected = saves
                             .iter()
                             .fold(0usize, |num, preview| num + preview.selected as usize);
 
-                        let reload = ui
-                            .horizontal(|ui| {
-                                ui.add_enabled(saves_selected == 1, egui::Button::new("Load"))
-                                    .on_disabled_hover_text("Only a single save must be selected")
-                                    .on_hover_text("Load the selected save.");
-                                ui.add_enabled(saves_selected > 0, egui::Button::new("Delete"))
-                                    .on_disabled_hover_text("More than one save must be selected")
-                                    .on_hover_text("Delete the selected save(s)");
+                        ui.horizontal(|ui| {
+                            *load_selected = ui
+                                .add_enabled(saves_selected == 1, egui::Button::new("Load"))
+                                .on_disabled_hover_text("Only a single save must be selected")
+                                .on_hover_text("Load the selected save.")
+                                .clicked();
 
-                                ui.with_layout(
-                                    egui::Layout::right_to_left(egui::Align::Center),
-                                    |ui| ui.button("Reload").clicked(),
-                                )
-                                .inner
-                            })
-                            .inner;
+                            *delete_selected = ui
+                                .add_enabled(saves_selected > 0, egui::Button::new("Delete"))
+                                .on_disabled_hover_text("More than one save must be selected")
+                                .on_hover_text("Delete the selected save(s)")
+                                .clicked();
 
-                        if reload {
-                            self.saves = LoadState::Request;
-                            return;
-                        }
+                            ui.with_layout(
+                                egui::Layout::right_to_left(egui::Align::Center),
+                                |ui| {
+                                    *reload = ui.button("Reload").clicked();
+                                },
+                            );
+                        });
 
                         ui.separator();
 
@@ -311,10 +306,12 @@ impl Load {
                                 ui.allocate_at_least(space, egui::Sense::hover());
                             });
 
+                        // Draws the parsed saves.
                         egui::ScrollArea::both().show(ui, |ui| {
                             egui::Grid::new(LOAD_GRID)
                                 .striped(true)
-                                .max_col_width(500.0)
+                                // The column width has to be manually set to max width
+                                .max_col_width(ui.available_size_before_wrap().x)
                                 .show(ui, show_grid(saves));
                         });
                     }
@@ -339,8 +336,6 @@ impl Load {
         toats: &mut Toasts,
     ) {
         match &self.saves {
-            // If the saves have been loaded already then no work needs to be done.
-            LoadState::Loaded(..) => {}
             // Requests for the saves to be drawn.
             LoadState::Request => {
                 let save_location = save_location.to_path_buf();
@@ -357,13 +352,18 @@ impl Load {
             // Check for task completion.
             LoadState::Waiting { receiver } => match receiver.try_recv() {
                 Ok(response) => {
-                    self.saves = LoadState::Loaded(response.map(|previews| {
-                        let mut vec = Vec::new();
-                        for save in previews {
-                            vec.push(save.into());
-                        }
-                        vec.into()
-                    }));
+                    self.saves = LoadState::Loaded {
+                        previews: response.map(|previews| {
+                            let mut vec = Vec::new();
+                            for save in previews {
+                                vec.push(save.into());
+                            }
+                            vec.into()
+                        }),
+                        reload: false,
+                        load_selected: false,
+                        delete_selected: false,
+                    };
                 }
                 Err(TryRecvError::Empty) => (),
                 Err(TryRecvError::Disconnected) => {
@@ -374,10 +374,65 @@ impl Load {
                             .text(LOAD_FAILED),
                     );
                     // Load an empty list to revent endless failed requests.
-                    self.saves = LoadState::Loaded(Ok(Box::new([])));
+                    self.saves = LoadState::Loaded {
+                        previews: Ok(Box::new([])),
+                        reload: false,
+                        load_selected: false,
+                        delete_selected: false,
+                    };
                 }
             },
+            LoadState::Loaded { reload, .. } => {
+                if *reload {
+                    self.saves = LoadState::Request;
+                }
+            }
         }
+    }
+
+    /// Returns the save the user wants to load. Or `None` if there is no save to load.
+    ///
+    /// This method will only return a save on the update that it was requested. Calling this method on subsequent updates will return `None`.
+    pub fn save_to_load(&mut self) -> Option<SavePreview> {
+        match &self.saves {
+            LoadState::Request | LoadState::Waiting { .. } => return None,
+            LoadState::Loaded {
+                previews,
+                load_selected,
+                ..
+            } => {
+                if let Ok(saves) = previews {
+                    if *load_selected {
+                        let selected: Vec<&Result<SavePreview, ParseError>> = saves
+                            .iter()
+                            .filter_map(|preview| {
+                                if preview.selected {
+                                    Some(&preview.preview)
+                                } else {
+                                    None
+                                }
+                            })
+                            .collect();
+
+                        // Only one save must be selected.
+                        if selected.len() != 1 {
+                            return None;
+                        }
+
+                        // If any errors are present don't try to parse the save file.
+                        return selected
+                            .first()
+                            .and_then(|save| match save {
+                                Ok(preview) => Some(preview),
+                                Err(_) => None,
+                            })
+                            .cloned();
+                    }
+                }
+            }
+        };
+
+        None
     }
 }
 

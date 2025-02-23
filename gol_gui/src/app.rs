@@ -10,7 +10,7 @@ use egui_keybind::Bind;
 use egui_toast::{Toast, Toasts};
 use gol_lib::{
     communication::{SimulatorPacket, UiPacket},
-    persistence::SaveBuilder,
+    persistence::{self, SaveBuilder},
     Area, BoardDisplay, Cell, GlobalPosition, SharedDisplay, SimulatorReceiver, UiSender,
 };
 use std::{
@@ -476,6 +476,37 @@ impl eframe::App for MyApp<'_> {
 
                 layer_painter.add(rect);
             }
+        }
+
+        // Load selected board
+        if let Some(save_preview) = self.load.save_to_load() {
+            let mut save_location = self.settings.file.save_location.clone();
+            let filename = save_preview.get_filename();
+
+            save_location.push(filename);
+
+            match persistence::load_board_data(save_location.as_path()) {
+                Ok(save) => {
+                    to_send.push(UiPacket::LoadBoard { board: save });
+                    self.toasts.add(
+                        Toast::new()
+                            .kind(egui_toast::ToastKind::Success)
+                            .options(toast_options())
+                            .text(format!(
+                                "Successfully loaded save \"{}\"",
+                                save_preview.get_name()
+                            )),
+                    );
+                }
+                Err(err) => {
+                    self.toasts.add(
+                        Toast::new()
+                            .kind(egui_toast::ToastKind::Error)
+                            .options(toast_options())
+                            .text(format!("Unable to load save file: {err}")),
+                    );
+                }
+            };
         }
 
         // If update is not requested the board will become outdated.
