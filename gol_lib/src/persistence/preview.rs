@@ -214,8 +214,7 @@ mod tests {
 
         // Must return with invalid data error
         let save_error = parse_saves.get(0).unwrap().as_ref().unwrap_err();
-        // TODO: Adapt Parse Error to support paths
-        // assert_eq!(save_error.path(), Some(path_buf).as_deref());
-        // assert_eq!(save_error.kind(), PreviewParseErrorKind::InvalidData)
+        assert_eq!(save_error.file_path(), Some(path_buf).as_deref());
+        assert_eq!(save_error.kind(), ParseErrorKind::InvalidData)
     }
 }
