@@ -1,3 +1,4 @@
+use crate::Area;
 use crate::{persistence::SimulationSave, GlobalPosition};
 use std::fs::File;
 use std::hash::{DefaultHasher, Hash, Hasher};
@@ -5,7 +6,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use super::{SaveData, CURRENT_SAVE_VERSION};
+use super::{generate_filename, SaveData, CURRENT_SAVE_VERSION};
 
 /// The possible errors when saving a board save.
 #[derive(thiserror::Error, Debug)]
@@ -104,23 +105,16 @@ impl SaveBuilder {
             .duration_since(UNIX_EPOCH)
             .unwrap_or(Duration::default());
 
-        // Generate file name from save content.
-        let file_name = {
-            // Don't hash board data as it might be very large.
-            let mut hasher = DefaultHasher::new();
-
-            save_name.hash(&mut hasher);
-            save_description.hash(&mut hasher);
-            simulation_save.board_area.hash(&mut hasher);
-            save_time.hash(&mut hasher);
-            save_tags.hash(&mut hasher);
-
-            hasher.finish().to_string()
-        };
+        let file_name = generate_filename(
+            &simulation_save.board_area,
+            &save_name,
+            &save_description,
+            &save_tags,
+            &save_time,
+        );
 
         // Need to push to create new file.
         save_path.push(file_name);
-        save_path.set_extension("save");
 
         let data = SaveData {
             version: CURRENT_SAVE_VERSION,
@@ -148,11 +142,6 @@ impl SaveBuilder {
     /// **ONLY AVAILABLE WHEN RUNNING TESTS**
     #[cfg(test)]
     pub(crate) fn generate_save_name(&self, path: &Path) -> std::path::PathBuf {
-        use std::{
-            hash::{DefaultHasher, Hash, Hasher},
-            time::UNIX_EPOCH,
-        };
-
         let mut save_path: PathBuf = path.into();
         let save_name = self.name.clone().unwrap_or("".into());
         let save_description = self.description.clone().unwrap_or("".into());
@@ -165,22 +154,15 @@ impl SaveBuilder {
             .duration_since(UNIX_EPOCH)
             .unwrap_or(Duration::default());
 
-        // Generate file name from save content.
-        let file_name = {
-            // Don't hash board data as it might be very large.
-            let mut hasher = DefaultHasher::new();
-
-            save_name.hash(&mut hasher);
-            save_description.hash(&mut hasher);
-            self.simulation_save.board_area.hash(&mut hasher);
-            save_time.hash(&mut hasher);
-            save_tags.hash(&mut hasher);
-
-            hasher.finish().to_string()
-        };
+        let file_name = generate_filename(
+            &self.simulation_save.board_area,
+            &save_name,
+            &save_description,
+            &save_tags,
+            &save_time,
+        );
 
         save_path.push(file_name);
-        save_path.set_extension("save");
         save_path
     }
 }
@@ -226,6 +208,7 @@ mod tests {
     }
 
     #[test]
+    /// The test name generation matches the actual name generation.
     fn save_board_name() {
         let temp_dir = tempfile::tempdir().expect("Able to create a temp dir");
         let save_name = "save";

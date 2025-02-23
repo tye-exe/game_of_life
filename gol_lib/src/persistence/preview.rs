@@ -1,6 +1,8 @@
 use std::{path::Path, time::Duration};
 
-use super::{load, ParseError};
+use crate::Area;
+
+use super::{generate_filename, load, ParseError};
 
 /// Finds and parses [`SavePreview`]s from the given directory.
 pub fn load_preview<'a>(
@@ -25,9 +27,10 @@ pub struct SavePreview {
     generation: u64,
     /// The time the save was made.
     time: Duration,
-
     /// The tags this save has.
     tags: Box<[Box<str>]>,
+    /// The area the save takes up on the board.
+    board_area: Area,
 }
 
 impl SavePreview {
@@ -59,6 +62,22 @@ impl SavePreview {
     /// The tags this save is part of.
     pub fn get_tags(&self) -> &[Box<str>] {
         &self.tags
+    }
+
+    /// The area the save takes up on the board.
+    pub fn get_board_area(&self) -> Area {
+        self.board_area
+    }
+
+    /// The filename of the save file (including the extension).
+    pub fn get_filename(&self) -> String {
+        generate_filename(
+            &self.board_area,
+            &self.name,
+            &self.description,
+            &self.tags,
+            &self.time,
+        )
     }
 }
 
@@ -127,7 +146,8 @@ mod tests {
                 time: save_time
                     .duration_since(UNIX_EPOCH)
                     .unwrap_or(Duration::default()),
-                tags: save_tags
+                tags: save_tags,
+                board_area: Default::default()
             }
         );
     }
@@ -194,7 +214,8 @@ mod tests {
                 time: save_time
                     .duration_since(UNIX_EPOCH)
                     .unwrap_or(Duration::default()),
-                tags: save_tags
+                tags: save_tags,
+                board_area: Default::default()
             }
         );
     }
@@ -216,5 +237,43 @@ mod tests {
         let save_error = parse_saves.get(0).unwrap().as_ref().unwrap_err();
         assert_eq!(save_error.file_path(), Some(path_buf).as_deref());
         assert_eq!(save_error.kind(), ParseErrorKind::InvalidData)
+    }
+
+    #[test]
+    /// The filename returned by the preview is the correct filename.
+    fn get_save_path() {
+        let temp_dir = tempfile::tempdir().expect("Able to create temp dir");
+        let save_name = "name";
+        let save_description = "description";
+        let save_time = SystemTime::now();
+        let save_tags = Box::new(["test".to_owned().into_boxed_str()]);
+
+        // Creates save file.
+        let path = SaveBuilder::new(Default::default())
+            .name(save_name)
+            .desciprtion(save_description)
+            .time(save_time)
+            .tags(save_tags)
+            .save(temp_dir.path())
+            .expect("Able to write save file");
+
+        // Temp binding to satisfy rust lifetimes
+        let binding = load_preview(temp_dir.path()).expect("Can read from tempoary save directory");
+
+        // Gets the parsed preview.
+        let save_preview = binding
+            .get(0)
+            .expect("One save file will be parsed")
+            .as_ref()
+            .expect("Save file is valid");
+
+        // Gets the filename from the file creation.
+        let filename = path
+            .file_name()
+            .expect("The returned save file path is valid.")
+            .to_str()
+            .expect("The filename will be valid unicode");
+
+        assert_eq!(filename, save_preview.get_filename());
     }
 }

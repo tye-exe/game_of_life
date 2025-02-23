@@ -5,6 +5,7 @@ pub mod preview;
 
 use std::{
     fs::File,
+    hash::{DefaultHasher, Hash, Hasher},
     path::Path,
     time::{Duration, SystemTime},
 };
@@ -127,6 +128,26 @@ fn load<'a, Data: DeserializeOwned>(
         .collect();
 
     Ok(parsed_data)
+}
+
+/// Generates the filename (including extension) of the save file from the save file content.
+fn generate_filename(
+    board_area: &Area,
+    save_name: &str,
+    save_description: &str,
+    save_tags: &[Box<str>],
+    save_time: &Duration,
+) -> String {
+    let mut hasher = DefaultHasher::new();
+    save_name.hash(&mut hasher);
+    save_description.hash(&mut hasher);
+    board_area.hash(&mut hasher);
+    save_time.hash(&mut hasher);
+    save_tags.hash(&mut hasher);
+
+    let mut filename = hasher.finish().to_string();
+    filename.push_str(".save");
+    filename
 }
 
 /// The data that a save of a simulation consists of.
