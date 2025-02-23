@@ -1,7 +1,5 @@
-use crate::Area;
 use crate::{persistence::SimulationSave, GlobalPosition};
 use std::fs::File;
-use std::hash::{DefaultHasher, Hash, Hasher};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};

@@ -1,19 +1,17 @@
 //! Contains the data structures used for handling blueprint & save data.
-pub mod board_load;
-pub mod board_save;
+pub mod load;
 pub mod preview;
+pub mod save;
 
 use std::{
-    fs::File,
     hash::{DefaultHasher, Hash, Hasher},
-    path::Path,
-    time::{Duration, SystemTime},
+    time::Duration,
 };
 
-pub use board_load::load_board_data;
-pub use board_save::SaveBuilder;
+pub(crate) use load::load;
+pub use load::{load_board_data, ParseError};
 pub use preview::load_preview;
-use serde::de::DeserializeOwned;
+pub use save::SaveBuilder;
 
 use crate::{Area, GlobalPosition};
 use bitvec::boxed::BitBox;
@@ -59,75 +57,21 @@ impl SimulationBlueprint {
     }
 }
 
-/// The errors that can occur when attempting to parse data from a file.
-#[derive(thiserror::Error, Debug)]
-#[cfg_attr(test, derive(kinded::Kinded))]
-pub enum ParseError {
-    /// Unable to read file.
-    #[error("Unable to read save file: {0}")]
-    FileParse(#[from] std::io::Error),
-    /// The file contains invalid data.
-    #[error("File '{path:?}' is not a valid save file: {serde_error}")]
-    InvalidData {
-        serde_error: serde_json::Error,
-        path: Box<Path>,
-    },
-}
+/// The data that a save of a simulation consists of.
+#[derive(serde::Serialize, serde::Deserialize)]
+#[cfg_attr(any(test), derive(Debug, PartialEq))]
+pub(crate) struct SaveData {
+    version: u16,
 
-impl ParseError {
-    /// The path to the file that caused the error, if it is available.
-    pub fn file_path(&self) -> Option<&Path> {
-        match self {
-            ParseError::FileParse(..) => None,
-            ParseError::InvalidData { path, .. } => Some(&**path),
-        }
-    }
-}
+    name: Box<str>,
+    description: Box<str>,
+    tags: Box<[Box<str>]>,
 
-/// Finds and parses `Data` instances from the given directory.
-///
-/// Returns `Err` if the given directory cannot be read from.
-/// Otherwise an array of parsed data/errors will be returned.
-fn load<'a, Data: DeserializeOwned>(
-    save_location: impl Into<&'a Path>,
-) -> Result<Box<[Result<Data, ParseError>]>, std::io::Error> {
-    let parsed_data = std::fs::read_dir(save_location.into())?
-        .into_iter()
-        // Try to read files
-        .filter_map(|dir_content| {
-            // Only try to parse files
-            match dir_content {
-                Ok(content) => match content.file_type() {
-                    Ok(file_type) => {
-                        if file_type.is_file() {
-                            Some(Ok(content))
-                        } else {
-                            None
-                        }
-                    }
-                    // Cannot read file type
-                    Err(err) => Some(Err(ParseError::FileParse(err))),
-                },
-                // Cannot read file
-                Err(err) => Some(Err(ParseError::FileParse(err))),
-            }
-        })
-        // Parse file content
-        .map(|file| {
-            let file = file?;
-            let open = File::open(file.path())?;
+    time: Duration,
+    view_position: Option<GlobalPosition>,
 
-            let content: Data =
-                serde_json::from_reader(open).map_err(|err| ParseError::InvalidData {
-                    serde_error: err,
-                    path: file.path().into_boxed_path(),
-                })?;
-
-            Ok(content)
-        })
-        .collect();
-
-    Ok(parsed_data)
+    #[serde(flatten)]
+    simulation_save: SimulationSave,
 }
 
 /// Generates the filename (including extension) of the save file from the save file content.
@@ -149,86 +93,3 @@ fn generate_filename(
     filename.push_str(".save");
     filename
 }
-
-/// The data that a save of a simulation consists of.
-#[derive(serde::Serialize, serde::Deserialize)]
-#[cfg_attr(any(test), derive(Debug, PartialEq))]
-pub(crate) struct SaveData {
-    version: u16,
-
-    name: Box<str>,
-    description: Box<str>,
-    tags: Box<[Box<str>]>,
-
-    time: Duration,
-    view_position: Option<GlobalPosition>,
-
-    #[serde(flatten)]
-    simulation_save: SimulationSave,
-}
-
-// #[derive(thiserror::Error, Debug)]
-// pub enum LoadError {
-//     #[error("Failed to find possible save files: {0}")]
-//     FileSearch(#[from] walkdir::Error),
-//     #[error("Failed to read save file: {0}")]
-//     FileRead(#[from] std::io::Error),
-// }
-
-// /// Parses data from all files recursively in the given location.
-// ///
-// /// Any invalid files that cannot be parsed as [`Data`] will be ignored.
-// pub fn load_files<Data: DeserializeOwned>(
-//     save_location: impl Into<Box<Path>>,
-// ) -> Result<Box<[Data]>, LoadError> {
-//     let mut saves = Vec::new();
-
-//     for file in WalkDir::new(save_location.into()) {
-//         let file = file?;
-//         if !file.file_type().is_file() {
-//             continue;
-//         }
-
-//         let file_data = std::fs::read_to_string(file.into_path())?;
-//         if let Ok(data) = serde_json::from_str(&file_data) {
-//             saves.push(data);
-//         }
-//     }
-
-//     Ok(saves.into_boxed_slice())
-// }
-
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-
-//     #[test]
-//     fn load_a_save() {
-//         let temp_dir = tempfile::tempdir().expect("Able to create a temp dir");
-
-//         // Tries to load the dir
-//         let save: Result<BoardSave, PreviewLoadError> = load_save(temp_dir.path());
-//         let error = save.expect_err("Must error");
-
-//         assert_eq!(error, PreviewLoadError::CannotRead)
-//     }
-
-//     #[test]
-//     fn load_save_pass() {
-//         let temp_dir = tempfile::tempdir().expect("Able to create a temp dir");
-
-//         // Tries to load the dir
-//         let save = load_save(temp_dir.path());
-//     }
-// }
-
-// #[derive(thiserror::Error, Debug)]
-// #[cfg_attr(test, derive(PartialEq))]
-// pub enum PreviewLoadError {
-//     #[error("Unable to load file")]
-//     CannotRead,
-// }
-
-// pub fn load_save<'a>(save_location: &'a Path) -> Result<BoardSave, PreviewLoadError> {
-//     Err(PreviewLoadError::CannotRead)
-// }

@@ -85,7 +85,7 @@ impl SavePreview {
 mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use crate::persistence::{board_save::SaveBuilder, ParseErrorKind, CURRENT_SAVE_VERSION};
+    use crate::persistence::{load::ParseErrorKind, save::SaveBuilder, CURRENT_SAVE_VERSION};
 
     use super::*;
 
