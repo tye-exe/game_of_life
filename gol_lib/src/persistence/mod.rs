@@ -10,7 +10,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-pub use board_load::load_save;
+pub use board_load::load_board_data;
 pub use board_save::SaveBuilder;
 pub use preview::load_preview;
 use serde::de::DeserializeOwned;
@@ -153,7 +153,7 @@ fn generate_filename(
 /// The data that a save of a simulation consists of.
 #[derive(serde::Serialize, serde::Deserialize)]
 #[cfg_attr(any(test), derive(Debug, PartialEq))]
-pub struct SaveData {
+pub(crate) struct SaveData {
     version: u16,
 
     name: Box<str>,
@@ -165,31 +165,6 @@ pub struct SaveData {
 
     #[serde(flatten)]
     simulation_save: SimulationSave,
-}
-
-impl SaveData {
-    pub fn version(&self) -> u16 {
-        todo!()
-    }
-
-    pub fn name(&self) -> &str {
-        todo!()
-    }
-    pub fn description(&self) -> &str {
-        todo!()
-    }
-    pub fn time(&self) -> Duration {
-        todo!()
-    }
-    pub fn view_position(&self) -> GlobalPosition {
-        todo!()
-    }
-    pub fn simulation_save(&self) -> SimulationSave {
-        todo!()
-    }
-    pub fn tags(&self) -> Box<[Box<str>]> {
-        todo!()
-    }
 }
 
 // #[derive(thiserror::Error, Debug)]

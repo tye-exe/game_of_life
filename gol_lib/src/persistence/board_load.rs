@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use super::SaveData;
+use super::{SaveData, SimulationSave};
 
 /// The possible errors when attempting to parse a save file from disk.
 #[derive(thiserror::Error, Debug)]
@@ -11,9 +11,8 @@ pub enum SaveParseError {
     InvalidData(#[from] serde_json::Error),
 }
 
-/// Attempts to parse a save file from disk at the given path.
-pub fn load_save<'a>(save_location: impl Into<&'a Path>) -> Result<SaveData, SaveParseError> {
-    let file = std::fs::File::open(save_location.into())?;
-    let save = serde_json::from_reader(file)?;
-    Ok(save)
+/// Attempts to parse the board data from a save at the given file path.
+pub fn load_board_data(save_location: &Path) -> Result<SimulationSave, SaveParseError> {
+    let file = std::fs::File::open(save_location)?;
+    Ok(serde_json::from_reader(file)?)
 }
