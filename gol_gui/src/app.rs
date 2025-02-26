@@ -461,7 +461,7 @@ impl eframe::App for MyApp<'_> {
 
                 let rect = egui::epaint::RectShape::new(
                     rect,
-                    egui::Rounding::ZERO,
+                    egui::CornerRadius::ZERO,
                     {
                         match self
                             .display_cache
@@ -472,6 +472,7 @@ impl eframe::App for MyApp<'_> {
                         }
                     },
                     egui::Stroke::new(1.0, Color32::GRAY),
+                    egui::StrokeKind::Middle,
                 );
 
                 layer_painter.add(rect);

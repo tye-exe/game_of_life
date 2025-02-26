@@ -294,9 +294,9 @@ impl Load {
                         // and the displayed previews.
                         //
                         // Similar to egui::Separator
-                        egui::Frame::none()
+                        egui::Frame::NONE
                             .fill(ui.visuals().widgets.noninteractive.bg_stroke.color)
-                            .rounding(egui::Rounding::same(1.0))
+                            .corner_radius(egui::CornerRadius::same(1))
                             .show(ui, |ui| {
                                 let available_space = if ui.is_sizing_pass() {
                                     egui::Vec2::ZERO

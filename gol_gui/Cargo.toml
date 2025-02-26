@@ -9,10 +9,12 @@ gol_lib = { path = "../gol_lib" }
 gol_simple = { path = "../gol_simple" }
 
 # Gui Deps
-egui = "0.30.0"
-eframe = { version = "0.30.0", features = ["persistence"] }
-egui-keybind = { version = "0.5.0", features = ["serde"] }
-egui-file-dialog = "0.8.0"
+egui = "0.31.0"
+eframe = { version = "0.31.0", features = ["persistence"] }
+egui-keybind = { version = "0.6.0", features = ["serde"] }
+egui-file-dialog = "0.9.0"
+# Use PR until main has been updated #
+egui-toast = { git = "https://github.com/urholaukkarinen/egui-toast.git", rev = "refs/pull/32/head" }
 
 # Logging
 log = "0.4"
@@ -26,4 +28,3 @@ threadpool = "1.8.1"
 oneshot = "0.1.8"
 kinded = "0.3.0"
 thiserror = "2.0.11"
-egui-toast = "0.16.0"
