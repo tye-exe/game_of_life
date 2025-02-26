@@ -2,16 +2,16 @@ use std::{
     any::Any,
     error::Error,
     path::PathBuf,
-    sync::{mpsc, LazyLock},
+    sync::{LazyLock, mpsc},
     thread,
     time::Duration,
 };
 
 use app::MyApp;
-use app_dirs2::{get_app_dir, get_app_root, AppDataType, AppInfo};
+use app_dirs2::{AppDataType, AppInfo, get_app_dir, get_app_root};
 use args::Args;
 use clap::Parser;
-use gol_lib::{communication::UiPacket, SharedDisplay, Simulator};
+use gol_lib::{SharedDisplay, Simulator, communication::UiPacket};
 
 mod app;
 mod args;

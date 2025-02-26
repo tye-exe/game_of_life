@@ -9,7 +9,7 @@ use std::{
 };
 
 pub(crate) use load::load;
-pub use load::{load_board_data, ParseError};
+pub use load::{ParseError, load_board_data};
 pub use preview::load_preview;
 pub use save::SaveBuilder;
 

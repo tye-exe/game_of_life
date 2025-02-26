@@ -3,8 +3,8 @@ use std::path::Path;
 use egui::RichText;
 use egui_file_dialog::FileDialog;
 use egui_toast::{Toast, Toasts};
-use gol_lib::persistence::save::BoardSaveError;
 use gol_lib::persistence::ParseError;
+use gol_lib::persistence::save::BoardSaveError;
 use gol_lib::{
     communication::UiPacket,
     persistence::{self, preview::SavePreview},

@@ -13,7 +13,7 @@ pub use position::GlobalPosition;
 pub use simulator::Simulator;
 
 use communication::{SimulatorPacket, UiPacket};
-use std::sync::{mpsc, Arc, Mutex};
+use std::sync::{Arc, Mutex, mpsc};
 use std::{
     sync::mpsc::{Receiver, Sender},
     thread,

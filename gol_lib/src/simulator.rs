@@ -1,6 +1,6 @@
 use crate::{
-    persistence::{SimulationBlueprint, SimulationSave},
     Area, Cell, GlobalPosition, SharedDisplay,
+    persistence::{SimulationBlueprint, SimulationSave},
 };
 
 /// An implementation of [`Simulator`] can simulate Conways game of life.

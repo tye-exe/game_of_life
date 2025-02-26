@@ -5,7 +5,7 @@ use egui_file_dialog::FileDialog;
 use egui_keybind::Shortcut;
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::{app::SETTINGS_PANEL, lang, DEFAULT_BLUEPRINT_PATH, DEFAULT_SAVE_PATH};
+use crate::{DEFAULT_BLUEPRINT_PATH, DEFAULT_SAVE_PATH, app::SETTINGS_PANEL, lang};
 
 lang! {
         CLOSE, "Close";

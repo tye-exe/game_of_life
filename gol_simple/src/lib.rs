@@ -627,10 +627,10 @@ mod tests {
                         // Tick & test
                         board.tick();
                         assert_eq!(
-                        board.get((1, 1).into()),
-                        Cell::Dead,
-                        "Cell at (1, 1) must die from neighbours at: {cell_a:?}, {cell_b:?}, {cell_c:?}, {cell_d:?}"
-                    );
+                            board.get((1, 1).into()),
+                            Cell::Dead,
+                            "Cell at (1, 1) must die from neighbours at: {cell_a:?}, {cell_b:?}, {cell_c:?}, {cell_d:?}"
+                        );
 
                         // Remove remenatns
                         board.reset();
@@ -676,10 +676,10 @@ mod tests {
                         // Tick & test
                         board.tick();
                         assert_eq!(
-                        board.get((1, 1).into()),
-                        Cell::Dead,
-                        "Cell at (1, 1) must stay dead with neighbours at: {cell_a:?}, {cell_b:?}, {cell_c:?}, {cell_d:?}"
-                    );
+                            board.get((1, 1).into()),
+                            Cell::Dead,
+                            "Cell at (1, 1) must stay dead with neighbours at: {cell_a:?}, {cell_b:?}, {cell_c:?}, {cell_d:?}"
+                        );
 
                         // Remove remenatns
                         board.reset();

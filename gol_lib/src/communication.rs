@@ -1,8 +1,8 @@
 use std::num::NonZeroU32;
 
 use crate::{
-    persistence::{SimulationBlueprint, SimulationSave},
     Area, Cell, GlobalPosition,
+    persistence::{SimulationBlueprint, SimulationSave},
 };
 
 /// The data packets that the UI will send to the simulator.

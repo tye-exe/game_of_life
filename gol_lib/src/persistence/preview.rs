@@ -2,7 +2,7 @@ use std::{path::Path, time::Duration};
 
 use crate::Area;
 
-use super::{generate_filename, load, ParseError};
+use super::{ParseError, generate_filename, load};
 
 /// Finds and parses [`SavePreview`]s from the given directory.
 pub fn load_preview<'a>(
@@ -85,7 +85,7 @@ impl SavePreview {
 mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use crate::persistence::{load::ParseErrorKind, save::SaveBuilder, CURRENT_SAVE_VERSION};
+    use crate::persistence::{CURRENT_SAVE_VERSION, load::ParseErrorKind, save::SaveBuilder};
 
     use super::*;
 
@@ -186,21 +186,9 @@ mod tests {
         let save_0 = parse_saves.get(0).unwrap().as_ref();
         let save_1 = parse_saves.get(1).unwrap().as_ref();
 
-        let invalid = {
-            if save_0.is_err() {
-                save_0
-            } else {
-                save_1
-            }
-        };
+        let invalid = { if save_0.is_err() { save_0 } else { save_1 } };
 
-        let valid = {
-            if save_0.is_err() {
-                save_1
-            } else {
-                save_0
-            }
-        };
+        let valid = { if save_0.is_err() { save_1 } else { save_0 } };
 
         assert_eq!(invalid.unwrap_err().kind(), ParseErrorKind::InvalidData);
 

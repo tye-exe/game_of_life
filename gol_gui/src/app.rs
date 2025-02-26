@@ -5,13 +5,13 @@ use crate::{
     lang,
     settings::Settings,
 };
-use egui::{pos2, Color32, Id, Painter, Rect};
+use egui::{Color32, Id, Painter, Rect, pos2};
 use egui_keybind::Bind;
 use egui_toast::{Toast, Toasts};
 use gol_lib::{
+    Area, BoardDisplay, Cell, GlobalPosition, SharedDisplay, SimulatorReceiver, UiSender,
     communication::{SimulatorPacket, UiPacket},
     persistence::{self, SaveBuilder},
-    Area, BoardDisplay, Cell, GlobalPosition, SharedDisplay, SimulatorReceiver, UiSender,
 };
 use std::{
     sync::mpsc::TryRecvError,

@@ -82,7 +82,7 @@ impl Area {
     /// assert_eq!(iterate_over.next().unwrap(), (1, 1).into());
     /// assert!(iterate_over.next().is_none());
     /// ```
-    pub fn iterate_over(&self) -> impl Iterator<Item = GlobalPosition> {
+    pub fn iterate_over(&self) -> impl Iterator<Item = GlobalPosition> + use<> {
         let GlobalPosition { x: min_x, y: min_y } = self.get_min();
         let GlobalPosition { x: max_x, y: max_y } = self.get_max();
 

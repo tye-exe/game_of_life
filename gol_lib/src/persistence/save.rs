@@ -1,10 +1,10 @@
-use crate::{persistence::SimulationSave, GlobalPosition};
+use crate::{GlobalPosition, persistence::SimulationSave};
 use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use super::{generate_filename, SaveData, CURRENT_SAVE_VERSION};
+use super::{CURRENT_SAVE_VERSION, SaveData, generate_filename};
 
 /// The possible errors when saving a board save.
 #[derive(thiserror::Error, Debug)]
