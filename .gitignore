@@ -1,7 +1,13 @@
+# Rust builds
 /target
 
 # direnv files
 .envrc
 .direnv
 
+# Generated Rust docs
 /docs
+
+# Screenshots from "egui_kittest"
+**/tests/snapshots/**/*.diff.png
+**/tests/snapshots/**/*.new.png
