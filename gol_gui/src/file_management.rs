@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use egui::RichText;
 use egui_file_dialog::FileDialog;
@@ -27,7 +27,9 @@ lang! {
     LOAD_FAILED, "Cannot retrieve save previews.";
     NO_SAVES, "There is no saved files.";
     ADD_TAG, "Add a new tag to this save.";
-    REMOVE_TAG, "Remove this tag from the save."
+    REMOVE_TAG, "Remove this tag from the save.";
+    DELETE_FILE_SUCCESS, "Successfully delete file:";
+    DELETE_FILE_ERROR, "Failed to delete file:"
 }
 
 const LOAD_GRID: &str = "Load Grid";
@@ -382,9 +384,82 @@ impl Load {
                     };
                 }
             },
-            LoadState::Loaded { reload, .. } => {
+            LoadState::Loaded {
+                reload,
+                delete_selected,
+                previews,
+                ..
+            } => {
                 if *reload {
                     self.saves = LoadState::Request;
+                    return;
+                }
+
+                // Delete saves if necessary.
+                match (*delete_selected, previews) {
+                    (true, Ok(previews)) => {
+                        let save_folder = save_location.to_path_buf();
+
+                        previews
+                            .iter()
+                            // Get the filepath to each save that is selected.
+                            .filter_map(|preview| {
+                                if !preview.selected {
+                                    return None;
+                                }
+
+                                // Try to get the path of the save, even if it's invalid.
+                                match &preview.preview {
+                                    Ok(preview) => {
+                                        let mut save_folder = save_folder.clone();
+                                        save_folder.push(preview.get_filename());
+                                        Some(save_folder)
+                                    }
+                                    Err(err) => {
+                                        if let Some(path) = err.file_path() {
+                                            Some(path.to_path_buf())
+                                        } else {
+                                            None
+                                        }
+                                    }
+                                }
+                            })
+                            // Try to delete each save
+                            .for_each(|file_path| {
+                                match std::fs::remove_file(file_path.as_path()) {
+                                    Ok(_) => {
+                                        toats.add(
+                                            Toast::new()
+                                                .kind(egui_toast::ToastKind::Success)
+                                                .options(toast_options())
+                                                .text(format!(
+                                                    "{} {}",
+                                                    DELETE_FILE_SUCCESS,
+                                                    file_path.to_string_lossy()
+                                                )),
+                                        );
+                                    }
+                                    Err(err) => {
+                                        toats.add(
+                                            Toast::new()
+                                                .kind(egui_toast::ToastKind::Error)
+                                                .options(
+                                                    egui_toast::ToastOptions::default()
+                                                        .duration(None)
+                                                        .show_icon(true),
+                                                )
+                                                .text(format!(
+                                                    "{} {}\n{}",
+                                                    DELETE_FILE_ERROR,
+                                                    file_path.to_string_lossy(),
+                                                    err
+                                                )),
+                                        );
+                                    }
+                                };
+                            });
+                    }
+                    _ => {}
                 }
             }
         }
