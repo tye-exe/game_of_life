@@ -315,4 +315,86 @@ mod tests {
         // The path also now exists.
         assert!(std::fs::exists(path_buf.as_path()).expect("Can query path existence."));
     }
+
+    /// Trying to save a file in a read-only folder must fail.
+    #[test]
+    fn no_permission_for_file() {
+        let temp_dir = tempfile::tempdir().expect("Able to create a temp dir");
+
+        let mut path_buf = temp_dir.path().to_path_buf();
+        path_buf.push("Permission_Path");
+        let permission_folder = path_buf.as_path();
+
+        std::fs::create_dir_all(permission_folder).expect("");
+
+        // Set to read only
+        let mut permission = std::fs::File::open(permission_folder)
+            .expect("Should be able to open file")
+            .metadata()
+            .expect("Should be able to get the file metadata")
+            .permissions();
+        permission.set_readonly(true);
+        std::fs::set_permissions(permission_folder, permission)
+            .expect("Should be able to set file permissions");
+
+        // Test that file cannot be saved due to permissions
+        let save_error = save_builder()
+            .save(permission_folder)
+            .expect_err("Should be denied due to permission");
+
+        assert!(matches!(save_error, BoardSaveError::FileOpen(..)));
+
+        // Set to allow writing for clean up
+        let mut permission = std::fs::File::open(permission_folder)
+            .expect("Should be able to open file")
+            .metadata()
+            .expect("Should be able to get the file metadata")
+            .permissions();
+        permission.set_readonly(false);
+        std::fs::set_permissions(permission_folder, permission)
+            .expect("Should be able to set file permissions");
+    }
+
+    /// Trying to create a folder in a read-only dir must fail.
+    #[test]
+    fn no_permission_for_dir() {
+        let temp_dir = tempfile::tempdir().expect("Able to create a temp dir");
+
+        let mut path_buf = temp_dir.path().to_path_buf();
+        path_buf.push("Permission_Path");
+
+        let binding = path_buf.clone();
+        let permission_folder = binding.as_path();
+
+        std::fs::create_dir_all(permission_folder).expect("");
+
+        // Set to read only
+        let mut permission = std::fs::File::open(permission_folder)
+            .expect("Should be able to open file")
+            .metadata()
+            .expect("Should be able to get the file metadata")
+            .permissions();
+        permission.set_readonly(true);
+        std::fs::set_permissions(permission_folder, permission)
+            .expect("Should be able to set file permissions");
+
+        path_buf.push("Sub_Folder");
+
+        // Test that file cannot be saved due to permissions
+        let save_error = save_builder()
+            .save(path_buf)
+            .expect_err("Should be denied due to permission");
+
+        assert!(matches!(save_error, BoardSaveError::ParentDir(..)));
+
+        // Set to allow writing for clean up
+        let mut permission = std::fs::File::open(permission_folder)
+            .expect("Should be able to open file")
+            .metadata()
+            .expect("Should be able to get the file metadata")
+            .permissions();
+        permission.set_readonly(false);
+        std::fs::set_permissions(permission_folder, permission)
+            .expect("Should be able to set file permissions");
+    }
 }
