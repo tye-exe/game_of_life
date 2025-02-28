@@ -12,11 +12,14 @@ pub enum BoardSaveError {
     /// The save content cannot be converted into the save file format.
     #[error("Unable to convert save data into file.")]
     SaveFormat,
+    /// Unable to create the parent folders.
+    #[error("Unable to create parent folders: {0}")]
+    ParentDir(std::io::Error),
     /// The save file already exists.
-    #[error("This save already exists.")]
+    #[error("Unable to write save file: {0}")]
     FileOpen(std::io::Error),
     /// Unable to write the save file to disk.
-    #[error("Unable to write file.")]
+    #[error("Unable to write file: {0}")]
     WriteFail(#[from] std::io::Error),
 }
 
@@ -82,6 +85,9 @@ impl SaveBuilder {
     /// The save path should be the the path to the save location, **without** the filename or extension, as these will be added during the method.
     ///
     /// The returned value is the file path to the saved file, including the filename. Or an error if one occurred.
+    ///
+    /// # Note
+    /// If the path to the location does not exist, then the required directories will be created.
     pub fn save(self, save_path: impl Into<PathBuf>) -> Result<Box<Path>, BoardSaveError> {
         let SaveBuilder {
             name: save_name,
@@ -110,6 +116,9 @@ impl SaveBuilder {
             &save_tags,
             &save_time,
         );
+
+        // Create parent folders if they do not exist.
+        std::fs::create_dir_all(&save_path).map_err(|err| BoardSaveError::ParentDir(err))?;
 
         // Need to push to create new file.
         save_path.push(file_name);
@@ -250,16 +259,60 @@ mod tests {
             .save(temp_dir.path())
             .expect_err("Must error as file exists");
 
-        assert!(match save_board {
-            BoardSaveError::FileOpen(..) => {
-                true
-            }
-            BoardSaveError::SaveFormat => {
-                false
-            }
-            BoardSaveError::WriteFail(..) => {
-                false
-            }
-        });
+        assert!(matches!(save_board, BoardSaveError::FileOpen(..)))
+    }
+
+    fn save_builder() -> SaveBuilder {
+        let save_name = "save";
+        let save_description = "description";
+        let save_time = SystemTime::now();
+        let tags = vec!["Testing Tags!"];
+
+        SaveBuilder::new(Default::default())
+            .name(save_name)
+            .desciprtion(save_description)
+            .time(save_time)
+            .tags(tags.into_boxed_slice())
+    }
+
+    /// Attempting to save a file at non existent path will create the parent dir.
+    #[test]
+    fn non_existent_path() {
+        let temp_dir = tempfile::tempdir().expect("Able to create a temp dir");
+
+        let mut path_buf = temp_dir.path().to_path_buf();
+        path_buf.push("doesnt_exist");
+
+        // The path does not exist
+        assert!(!std::fs::exists(path_buf.as_path()).expect("Can query path existence."));
+
+        let save_builder = save_builder();
+        save_builder
+            .save(path_buf.clone())
+            .expect("Able to create parent directories");
+
+        // The path also now exists.
+        assert!(std::fs::exists(path_buf.as_path()).expect("Can query path existence."));
+    }
+
+    /// Attempting to save a file at a path with multiple non existent parents will created all the parent dirs.
+    #[test]
+    fn no_existent_paths() {
+        let temp_dir = tempfile::tempdir().expect("Able to create a temp dir");
+
+        let mut path_buf = temp_dir.path().to_path_buf();
+        path_buf.push("doesnt_exist");
+        path_buf.push("also_doesnt_exist");
+
+        // The path does not exist
+        assert!(!std::fs::exists(path_buf.as_path()).expect("Can query path existence."));
+
+        let save_builder = save_builder();
+        save_builder
+            .save(path_buf.clone())
+            .expect("Able to create parent directories");
+
+        // The path also now exists.
+        assert!(std::fs::exists(path_buf.as_path()).expect("Can query path existence."));
     }
 }
