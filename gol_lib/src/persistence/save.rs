@@ -74,8 +74,8 @@ impl SaveBuilder {
     }
 
     /// The tags this save belongs to.
-    pub fn tags(mut self, tags: Box<[Box<str>]>) -> Self {
-        self.tags = Some(tags);
+    pub fn tags(mut self, tags: Box<[impl Into<Box<str>>]>) -> Self {
+        self.tags = Some(tags.into_iter().map(|tag| tag.into()).collect());
         self
     }
 }
