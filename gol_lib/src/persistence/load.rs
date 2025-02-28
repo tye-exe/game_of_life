@@ -52,7 +52,6 @@ pub(crate) fn load<'a, Data: DeserializeOwned>(
     save_location: impl Into<&'a Path>,
 ) -> Result<Box<[Result<Data, ParseError>]>, std::io::Error> {
     let parsed_data = std::fs::read_dir(save_location.into())?
-        .into_iter()
         // Try to read files
         .filter_map(|dir_content| {
             // Only try to parse files

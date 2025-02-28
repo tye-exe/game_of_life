@@ -1,11 +1,4 @@
-use std::{
-    any::Any,
-    error::Error,
-    path::PathBuf,
-    sync::{LazyLock, mpsc},
-    thread,
-    time::Duration,
-};
+use std::{error::Error, path::PathBuf, sync::LazyLock};
 
 use app::MyApp;
 use app_dirs2::{AppDataType, AppInfo, get_app_dir, get_app_root};

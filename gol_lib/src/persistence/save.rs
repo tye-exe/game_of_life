@@ -105,7 +105,7 @@ impl SaveBuilder {
 
         // Use time to differentiate saves with the same name.
         let save_time = save_time
-            .unwrap_or_else(|| SystemTime::now())
+            .unwrap_or_else(SystemTime::now)
             .duration_since(UNIX_EPOCH)
             .unwrap_or(Duration::default());
 
@@ -118,7 +118,7 @@ impl SaveBuilder {
         );
 
         // Create parent folders if they do not exist.
-        std::fs::create_dir_all(&save_path).map_err(|err| BoardSaveError::ParentDir(err))?;
+        std::fs::create_dir_all(&save_path).map_err(BoardSaveError::ParentDir)?;
 
         // Need to push to create new file.
         save_path.push(file_name);
@@ -138,7 +138,7 @@ impl SaveBuilder {
 
         // Write file if it doesn't exist.
         File::create_new(&save_path)
-            .map_err(|err| BoardSaveError::FileOpen(err))?
+            .map_err(BoardSaveError::FileOpen)?
             .write_all(&file_data.into_bytes())?;
 
         Ok(save_path.into())

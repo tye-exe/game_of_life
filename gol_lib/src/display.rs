@@ -86,7 +86,7 @@ mod board_display_tests {
         for _ in 0..5 {
             let mut y_builder = Vec::new();
             for y in 0..6 {
-                y_builder.push({ if y % 2 == 0 { Cell::Dead } else { Cell::Alive } });
+                y_builder.push(if y % 2 == 0 { Cell::Dead } else { Cell::Alive });
             }
             // Convert the vec into the correct type
             let array: Box<[Cell]> = y_builder.into();
