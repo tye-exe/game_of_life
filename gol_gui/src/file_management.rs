@@ -1,3 +1,4 @@
+use std::ops::ControlFlow;
 use std::path::Path;
 
 use egui::RichText;
@@ -393,62 +394,10 @@ impl Load {
                     return;
                 }
 
-                // Delete saves if necessary.
-                if let (true, Ok(previews)) = (*delete_selected, previews) {
-                    let save_folder = save_location.to_path_buf();
-
-                    previews
-                        .iter()
-                        // Get the filepath to each save that is selected.
-                        .filter_map(|preview| {
-                            if !preview.selected {
-                                return None;
-                            }
-
-                            // Try to get the path of the save, even if it's invalid.
-                            match &preview.preview {
-                                Ok(preview) => {
-                                    let mut save_folder = save_folder.clone();
-                                    save_folder.push(preview.get_filename());
-                                    Some(save_folder)
-                                }
-                                Err(err) => err.file_path().map(|path| path.to_path_buf()),
-                            }
-                        })
-                        // Try to delete each save
-                        .for_each(|file_path| {
-                            match std::fs::remove_file(file_path.as_path()) {
-                                Ok(_) => {
-                                    toats.add(
-                                        Toast::new()
-                                            .kind(egui_toast::ToastKind::Success)
-                                            .options(toast_options())
-                                            .text(format!(
-                                                "{} {}",
-                                                DELETE_FILE_SUCCESS,
-                                                file_path.to_string_lossy()
-                                            )),
-                                    );
-                                }
-                                Err(err) => {
-                                    toats.add(
-                                        Toast::new()
-                                            .kind(egui_toast::ToastKind::Error)
-                                            .options(
-                                                egui_toast::ToastOptions::default()
-                                                    .duration(None)
-                                                    .show_icon(true),
-                                            )
-                                            .text(format!(
-                                                "{} {}\n{}",
-                                                DELETE_FILE_ERROR,
-                                                file_path.to_string_lossy(),
-                                                err
-                                            )),
-                                    );
-                                }
-                            };
-                        });
+                if let ControlFlow::Break(_) =
+                    delete_selected_saves(save_location, toats, *delete_selected, previews)
+                {
+                    return;
                 }
             }
         }
@@ -498,6 +447,74 @@ impl Load {
 
         None
     }
+}
+
+/// Attempt to delete the selected save files.
+fn delete_selected_saves(
+    save_location: &Path,
+    toats: &mut Toasts,
+    delete_selected: bool,
+    previews: &Result<Box<[Preview]>, std::io::Error>,
+) -> ControlFlow<()> {
+    let previews = if let (true, Ok(previews)) = (delete_selected, previews) {
+        previews
+    } else {
+        return ControlFlow::Break(());
+    };
+
+    let save_folder = save_location.to_path_buf();
+
+    // Get the filepath to each save that is selected.
+    let path_iter = previews.iter().filter_map(|preview| {
+        if !preview.selected {
+            return None;
+        }
+
+        // Try to get the path of the save, even if it's invalid.
+        match &preview.preview {
+            Ok(preview) => {
+                let mut save_folder = save_folder.clone();
+                save_folder.push(preview.get_filename());
+                Some(save_folder)
+            }
+            Err(err) => err.file_path().map(|path| path.to_path_buf()),
+        }
+    });
+
+    // Try to delete each save file.
+    for file_path in path_iter {
+        match std::fs::remove_file(file_path.as_path()) {
+            Ok(_) => {
+                let text = format!("{} {}", DELETE_FILE_SUCCESS, file_path.to_string_lossy());
+                toats.add(
+                    Toast::new()
+                        .kind(egui_toast::ToastKind::Success)
+                        .options(toast_options())
+                        .text(text),
+                );
+            }
+            Err(err) => {
+                let options = egui_toast::ToastOptions::default()
+                    .duration(None)
+                    .show_icon(true);
+                let text = format!(
+                    "{} {}\n{}",
+                    DELETE_FILE_ERROR,
+                    file_path.to_string_lossy(),
+                    err
+                );
+
+                toats.add(
+                    Toast::new()
+                        .kind(egui_toast::ToastKind::Error)
+                        .options(options)
+                        .text(text),
+                );
+            }
+        }
+    }
+
+    ControlFlow::Continue(())
 }
 
 /// Shows the grid of loaded files.
