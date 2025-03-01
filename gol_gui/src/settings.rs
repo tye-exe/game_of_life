@@ -15,6 +15,7 @@ lang! {
         KEYBIND_HEADER, "Keybinds";
         CELL_ALIVE_COLOUR, "Cell alive colour:";
         CELL_DEAD_COLOUR, "Cell dead colour:";
+        CELL_GRID_COLOUR, "Cell grid colour:";
         CELL_SIZE, "Cell size:";
         KEYBIND_SIMULATION_TOGGLE, "Toggle Simulation:";
         KEYBIND_SETTINGS_MENU_TOGGLE, "Toggle Settings Menu:";
@@ -43,6 +44,8 @@ pub(crate) struct CellSettings {
     pub(crate) alive_colour: Color32,
     /// The colour of dead cells.
     pub(crate) dead_colour: Color32,
+    /// The colour of the grid lines separating the cells.
+    pub(crate) grid_colour: Color32,
     /// The size of each cell.
     pub(crate) size: f32,
 }
@@ -107,6 +110,7 @@ impl Default for CellSettings {
         Self {
             alive_colour: Color32::WHITE,
             dead_colour: Color32::BLACK,
+            grid_colour: Color32::GRAY,
             size: 15.0,
         }
     }
@@ -128,6 +132,14 @@ impl CellSettings {
                 ui.color_edit_button_srgba(&mut self.dead_colour);
                 if ui.small_button(RESET).clicked() {
                     self.dead_colour = CellSettings::default().dead_colour;
+                }
+            });
+
+            ui.horizontal(|ui| {
+                ui.label(CELL_GRID_COLOUR);
+                ui.color_edit_button_srgba(&mut self.grid_colour);
+                if ui.small_button(RESET).clicked() {
+                    self.grid_colour = CellSettings::default().grid_colour;
                 }
             });
 

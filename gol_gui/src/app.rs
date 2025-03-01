@@ -471,7 +471,7 @@ impl eframe::App for MyApp<'_> {
                             Cell::Dead => self.settings.cell.dead_colour,
                         }
                     },
-                    egui::Stroke::new(1.0, Color32::GRAY),
+                    egui::Stroke::new(1.0, self.settings.cell.grid_colour),
                     egui::StrokeKind::Middle,
                 );
 
