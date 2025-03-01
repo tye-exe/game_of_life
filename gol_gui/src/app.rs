@@ -143,7 +143,7 @@ impl<'a> MyApp<'a> {
     ///
     /// This method only exists on debug builds.
     #[cfg(debug_assertions)]
-    fn debug_window(&mut self, ctx: &egui::Context) {
+    fn debug_window(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         egui::Window::new(DEBUG_WINDOW)
             .open(&mut self.debug_menu_open)
             .show(ctx, |ui| {
@@ -169,7 +169,7 @@ impl<'a> MyApp<'a> {
                         self.error_occurred = None;
                     }
                 });
-                // ui.add(egui::Separator::horizontal())
+
                 ui.separator();
                 ui.heading("Internal Values");
                 ui.label(format!(
@@ -200,11 +200,21 @@ impl<'a> MyApp<'a> {
                 ));
 
                 ui.separator();
-                let secs_f64 = self.last_frame_time.as_secs_f64();
-                if secs_f64.is_normal() {
-                    let fps = 1.0 / secs_f64;
-                    ui.label(fps.to_string());
-                }
+                ui.heading("Rendering Stats");
+
+                let update_duration = self.last_frame_time.as_secs_f32();
+                let updates_per_sec = 1.0 / update_duration;
+                ui.label(format!(
+                    "Updates Per Second: {}",
+                    updates_per_sec.to_string()
+                ));
+
+                let cpu_usage = frame
+                    .info()
+                    .cpu_usage
+                    .map(|usage| usage.to_string())
+                    .unwrap_or("N/A".to_owned());
+                ui.label(format!("CPU Usage: {cpu_usage}"));
 
                 ui.separator();
                 if ui.button("Spawn Toast").clicked() {
@@ -231,11 +241,11 @@ impl<'a> MyApp<'a> {
 }
 
 impl eframe::App for MyApp<'_> {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         #[cfg(debug_assertions)]
         let start_time = Instant::now();
         #[cfg(debug_assertions)]
-        self.debug_window(ctx);
+        self.debug_window(ctx, frame);
 
         self.toasts.show(ctx);
 
