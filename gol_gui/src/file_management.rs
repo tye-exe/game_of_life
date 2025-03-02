@@ -1,5 +1,6 @@
-use std::ops::ControlFlow;
-use std::path::Path;
+use std::io;
+use std::path::{Path, PathBuf};
+use std::result::Result;
 
 use egui::RichText;
 use egui_toast::{Toast, Toasts};
@@ -194,14 +195,15 @@ enum LoadState {
     Request,
     /// Waiting for the preview response.
     Waiting {
-        receiver: oneshot::Receiver<Result<Box<[Result<SavePreview, ParseError>]>, std::io::Error>>,
+        receiver: oneshot::Receiver<Result<Box<[Result<SavePreview, ParseError>]>, io::Error>>,
     },
     /// The loaded save previws.
     Loaded {
-        previews: Result<Box<[Preview]>, std::io::Error>,
+        previews: Result<Box<[Preview]>, io::Error>,
         reload: bool,
         load_selected: bool,
         delete_selected: bool,
+        delete_result: Option<DeleteReceiver>,
     },
 }
 
@@ -250,6 +252,7 @@ impl Load {
                     reload,
                     load_selected,
                     delete_selected,
+                    ..
                 } => match saves {
                     Ok(saves) => {
                         // The number of selected saves.
@@ -336,7 +339,7 @@ impl Load {
         save_location: &Path,
         toats: &mut Toasts,
     ) {
-        match &self.saves {
+        match &mut self.saves {
             // Requests for the saves to be drawn.
             LoadState::Request => {
                 let save_location = save_location.to_path_buf();
@@ -364,6 +367,7 @@ impl Load {
                         reload: false,
                         load_selected: false,
                         delete_selected: false,
+                        delete_result: None,
                     };
                 }
                 Err(TryRecvError::Empty) => (),
@@ -380,6 +384,7 @@ impl Load {
                         reload: false,
                         load_selected: false,
                         delete_selected: false,
+                        delete_result: None,
                     };
                 }
             },
@@ -387,6 +392,7 @@ impl Load {
                 reload,
                 delete_selected,
                 previews,
+                delete_result,
                 ..
             } => {
                 if *reload {
@@ -394,11 +400,15 @@ impl Load {
                     return;
                 }
 
-                if let ControlFlow::Break(_) =
-                    delete_selected_saves(save_location, toats, *delete_selected, previews)
-                {
-                    return;
+                if let (true, Ok(previews)) = (delete_selected, previews) {
+                    *delete_result = Some(delete_selected_saves(
+                        save_location.into(),
+                        previews,
+                        io_thread,
+                    ));
                 }
+
+                delete_response(toats, delete_result);
             }
         }
     }
@@ -449,72 +459,107 @@ impl Load {
     }
 }
 
-/// Attempt to delete the selected save files.
-fn delete_selected_saves(
-    save_location: &Path,
+/// Creates toasts depending on the status of deleting files.
+fn delete_response(
     toats: &mut Toasts,
-    delete_selected: bool,
-    previews: &Result<Box<[Preview]>, std::io::Error>,
-) -> ControlFlow<()> {
-    let previews = if let (true, Ok(previews)) = (delete_selected, previews) {
-        previews
-    } else {
-        return ControlFlow::Break(());
-    };
+    delete_result: &mut Option<oneshot::Receiver<Box<[(Result<(), io::Error>, PathBuf)]>>>,
+) {
+    if let Some(receiver) = delete_result {
+        // Check if the file deletion has finished
+        match receiver.try_recv() {
+            Ok(results) => {
+                // Loop over the result for each deletion
+                for (status, path) in results {
+                    match status {
+                        Ok(_) => {
+                            let text =
+                                format!("{} {}", DELETE_FILE_SUCCESS, path.to_string_lossy());
+                            toats.add(
+                                Toast::new()
+                                    .kind(egui_toast::ToastKind::Success)
+                                    .options(toast_options())
+                                    .text(text),
+                            );
+                        }
+                        Err(err) => {
+                            let options = egui_toast::ToastOptions::default()
+                                .duration(None)
+                                .show_icon(true);
+                            let text = format!(
+                                "{} {}\n{}",
+                                DELETE_FILE_ERROR,
+                                path.to_string_lossy(),
+                                err
+                            );
 
-    let save_folder = save_location.to_path_buf();
+                            toats.add(
+                                Toast::new()
+                                    .kind(egui_toast::ToastKind::Error)
+                                    .options(options)
+                                    .text(text),
+                            );
+                        }
+                    }
+                }
 
-    // Get the filepath to each save that is selected.
-    let path_iter = previews.iter().filter_map(|preview| {
-        if !preview.selected {
-            return None;
-        }
-
-        // Try to get the path of the save, even if it's invalid.
-        match &preview.preview {
-            Ok(preview) => {
-                let mut save_folder = save_folder.clone();
-                save_folder.push(preview.get_filename());
-                Some(save_folder)
+                *delete_result = None;
             }
-            Err(err) => err.file_path().map(|path| path.to_path_buf()),
-        }
-    });
-
-    // Try to delete each save file.
-    for file_path in path_iter {
-        match std::fs::remove_file(file_path.as_path()) {
-            Ok(_) => {
-                let text = format!("{} {}", DELETE_FILE_SUCCESS, file_path.to_string_lossy());
-                toats.add(
-                    Toast::new()
-                        .kind(egui_toast::ToastKind::Success)
-                        .options(toast_options())
-                        .text(text),
-                );
-            }
-            Err(err) => {
-                let options = egui_toast::ToastOptions::default()
-                    .duration(None)
-                    .show_icon(true);
-                let text = format!(
-                    "{} {}\n{}",
-                    DELETE_FILE_ERROR,
-                    file_path.to_string_lossy(),
-                    err
-                );
-
-                toats.add(
-                    Toast::new()
-                        .kind(egui_toast::ToastKind::Error)
-                        .options(options)
-                        .text(text),
-                );
+            Err(oneshot::TryRecvError::Empty) => {}
+            Err(oneshot::TryRecvError::Disconnected) => {
+                *delete_result = None;
             }
         }
     }
+}
 
-    ControlFlow::Continue(())
+type DeleteReceiver = oneshot::Receiver<Box<[(Result<(), std::io::Error>, PathBuf)]>>;
+
+/// Attempt to delete the selected save files.
+///
+/// This function runs the file deletion on the background thread, with the results of each deletion alonside the filepath
+/// being sent on the channel returned from this function.
+fn delete_selected_saves(
+    save_location: PathBuf,
+    previews: &Box<[Preview]>,
+    io_thread: &threadpool::ThreadPool,
+) -> DeleteReceiver {
+    // Get the filepath to each save that is selected.
+    // This is done on main thread as the preview data is behind a reference.
+    let paths: Vec<PathBuf> = previews
+        .iter()
+        .filter_map(|preview| {
+            if !preview.selected {
+                return None;
+            }
+
+            // Try to get the path of the save, even if it's invalid.
+            match &preview.preview {
+                Ok(preview) => {
+                    let mut save_folder = save_location.clone();
+                    save_folder.push(preview.get_filename());
+                    Some(save_folder)
+                }
+                Err(err) => err.file_path().map(|path| path.to_path_buf()),
+            }
+        })
+        .collect();
+
+    let (sender, receiver) = oneshot::channel();
+
+    // Run file delete on background thread.
+    io_thread.execute(|| {
+        // Try to delete each save file.
+        let results: Box<[(io::Result<()>, PathBuf)]> = paths
+            .into_iter()
+            .map(|path| (std::fs::remove_file(path.as_path()), path))
+            .collect();
+
+        let _ = sender
+            .send(results)
+            .inspect_err(|_| eprintln!("Unable to send deletion result to GUI"));
+    });
+
+    receiver
 }
 
 /// Shows the grid of loaded files.
