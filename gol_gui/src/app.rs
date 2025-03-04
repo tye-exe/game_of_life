@@ -70,6 +70,220 @@ pub struct MyApp<'a> {
     toasts: Toasts,
 }
 
+impl eframe::App for MyApp<'_> {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        #[cfg(debug_assertions)]
+        let start_time = Instant::now();
+        #[cfg(debug_assertions)]
+        self.debug_window(ctx, frame);
+
+        self.toasts.show(ctx);
+
+        let mut to_send = Vec::new();
+
+        if let Some(error_data) = &mut self.error_occurred {
+            handle_error(ctx, error_data);
+
+            // Don't perform any other actions as the application is in an invalid state.
+            return;
+        }
+
+        self.check_keybinds(ctx);
+
+        self.save.update(ctx, &mut self.settings, &mut self.toasts);
+        self.load.update(
+            self.io_thread,
+            &self.settings.file.save_location,
+            &mut self.toasts,
+        );
+
+        self.save.draw(ctx, &mut to_send);
+        self.load.draw(ctx);
+
+        // Stores the size the board will take up.
+        let mut board_rect = Rect::from_min_max(
+            (0.0, 0.0).into(),
+            ctx.input(|i| i.screen_rect()).right_bottom(),
+        );
+
+        // Draw settings menu
+        if let Some(inner_response) = self.settings.draw(ctx) {
+            let size = inner_response.response.rect.size();
+            *board_rect.left_mut() += size.x;
+        };
+
+        let show = egui::TopBottomPanel::top(TOP_PANEL).show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                if ui.button("Start").clicked() {
+                    to_send.push(UiPacket::Start);
+                };
+                if ui.button("Stop").clicked() {
+                    to_send.push(UiPacket::Stop);
+                }
+
+                if ui.button("Settings").clicked() {
+                    self.settings.open = !self.settings.open;
+                }
+
+                if ui.button("Save").clicked() {
+                    self.save.show = !self.save.show;
+                }
+
+                if ui.button("Load").clicked() {
+                    self.load.show = !self.load.show
+                }
+
+                #[cfg(debug_assertions)]
+                {
+                    if ui.button("Debug Menu").clicked() {
+                        self.debug_menu_open = !self.debug_menu_open
+                    }
+                }
+            })
+        });
+
+        let top_size = show.response.rect.size();
+
+        // Account for top panel.
+        *board_rect.top_mut() += top_size.y;
+        *board_rect.bottom_mut() += top_size.y;
+
+        // board_rect must not change after this point
+        let board_rect = board_rect;
+
+        self.board_interaction(ctx, &mut to_send, board_rect);
+        self.draw_board(ctx, board_rect);
+
+        // Load selected board
+        if let Some(save_preview) = self.load.save_to_load() {
+            let mut save_location = self.settings.file.save_location.clone();
+            let filename = save_preview.get_filename();
+
+            save_location.push(filename);
+
+            match persistence::load_board_data(save_location.as_path()) {
+                Ok(save) => {
+                    to_send.push(UiPacket::LoadBoard { board: save });
+                    self.toasts.add(
+                        Toast::new()
+                            .kind(egui_toast::ToastKind::Success)
+                            .options(toast_options())
+                            .text(format!(
+                                "Successfully loaded save \"{}\"",
+                                save_preview.get_name()
+                            )),
+                    );
+                }
+                Err(err) => {
+                    self.toasts.add(
+                        Toast::new()
+                            .kind(egui_toast::ToastKind::Error)
+                            .options(toast_options())
+                            .text(format!("Unable to load save file: {err}")),
+                    );
+                }
+            };
+        }
+
+        // If update is not requested the board will become outdated.
+        // This causes higher cpu usage, but only by one/two %.
+        ctx.request_repaint();
+
+        // Process fallible code //
+
+        // Update display
+        match self.display_update.try_lock() {
+            Ok(mut board) => {
+                if let Some(board) = board.take() {
+                    self.display_cache = board;
+                }
+            }
+            Err(std::sync::TryLockError::WouldBlock) => {
+                // The display cache can still be used.
+            }
+            Err(std::sync::TryLockError::Poisoned(err)) => {
+                self.error_occurred = Some(ErrorData::from_error_and_log(
+                    lang::SHARED_DISPLAY_POISIONED,
+                    err,
+                ));
+                return;
+            }
+        }
+
+        // Process user interaction
+        for message in to_send {
+            if let Err(err) = self.ui_sender.send(message) {
+                self.error_occurred = Some(ErrorData::from_error_and_log(lang::SEND_ERROR, err));
+                return;
+            }
+        }
+
+        loop {
+            // Receive packets from simulatior
+            let simulator_packet = match self.simulator_receiver.try_recv() {
+                Ok(simulator_packet) => simulator_packet,
+                Err(TryRecvError::Empty) => {
+                    break;
+                }
+                Err(TryRecvError::Disconnected) => {
+                    self.error_occurred = Some(ErrorData::from_error(lang::RECEIVE_ERROR));
+                    return;
+                }
+            };
+
+            // Act on the simulator packets
+            match simulator_packet {
+                SimulatorPacket::BoardSave {
+                    board: simulation_save,
+                } => {
+                    let name = self.save.get_name().to_owned();
+                    let description = self.save.get_description().to_owned();
+                    let mut tags = self.save.get_tags().clone();
+                    let save_path = self.settings.file.save_location.clone();
+
+                    // Convert tags
+                    let tags = tags
+                        .iter_mut()
+                        .map(|tag| tag.clone().into_boxed_str())
+                        .collect();
+
+                    let (tx, rx) = oneshot::channel();
+
+                    self.save.set_waiting(rx);
+                    // Run task in IO thread
+                    self.io_thread.execute(move || {
+                        std::thread::sleep(Duration::from_secs(1));
+
+                        let _ = tx
+                            .send(
+                                SaveBuilder::new(simulation_save)
+                                    .name(name)
+                                    .desciprtion(description)
+                                    .tags(tags)
+                                    .save(save_path),
+                            )
+                            .inspect_err(|e| {
+                                eprintln!("Could not communicate with ui thread: {e}")
+                            });
+                    });
+                }
+                SimulatorPacket::BlueprintSave { blueprint } => todo!(),
+            }
+        }
+
+        // Time framerate
+        #[cfg(debug_assertions)]
+        {
+            let end_time = Instant::now();
+            self.last_frame_time = end_time - start_time;
+        }
+    }
+
+    fn save(&mut self, storage: &mut dyn eframe::Storage) {
+        eframe::set_value(storage, Settings::SAVE_KEY, &self.settings);
+    }
+}
+
 impl<'a> MyApp<'a> {
     pub fn new(
         creation_context: &eframe::CreationContext<'_>,
@@ -243,126 +457,79 @@ impl<'a> MyApp<'a> {
             }
         })
     }
-}
 
-impl eframe::App for MyApp<'_> {
-    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        #[cfg(debug_assertions)]
-        let start_time = Instant::now();
-        #[cfg(debug_assertions)]
-        self.debug_window(ctx, frame);
-
-        self.toasts.show(ctx);
-
-        let mut to_send = Vec::new();
-
-        if let Some(error_data) = &mut self.error_occurred {
-            // Ensures the background is empty.
-            egui::CentralPanel::default().show(ctx, |_ui| {});
-
-            // Calculates the position of the window.
-            let screen_center = ctx.screen_rect().center();
-            let position = error_data
-                .window_size
-                .map(|size| {
-                    let x_offset = size.x / 2.0;
-                    let y_offset = size.y / 2.0;
-
-                    let x = screen_center.x - x_offset;
-                    let y = screen_center.y - y_offset;
-
-                    egui::pos2(x, y)
-                })
-                .unwrap_or(screen_center);
-
-            // Create pop-up window to display error.
-            // Centering normal text is a nightmare so a pop-up will sufice.
-            let window = egui::Window::new(lang::UNRECOVERABLE_ERROR_HEADER)
-                .movable(false)
-                .order(egui::Order::Foreground)
-                .current_pos(position)
-                .resizable(false)
-                .show(ctx, |ui| {
-                    ui.label(format!(
-                        "{}\"{}\"",
-                        lang::ERROR_MESSAGE,
-                        error_data.error_message
-                    ));
-                    ui.label(lang::ERROR_ADVICE)
-                });
-
-            // Calculate the current size of the pop-up to use for centering on the next frame.
-            if let Some(window) = window {
-                error_data.window_size = Some(window.response.rect.size());
-            }
-
-            // Don't perform any other actions as the application is in an invalid state.
-            return;
-        }
-
-        self.check_keybinds(ctx);
-
-        self.save.update(ctx, &mut self.settings, &mut self.toasts);
-        self.load.update(
-            self.io_thread,
-            &self.settings.file.save_location,
-            &mut self.toasts,
+    /// Draws the board of for Conways Game of Life onto the centeral panel.
+    fn draw_board(&mut self, ctx: &egui::Context, board_rect: Rect) {
+        // Creates the painter for the board display.
+        let layer_painter = Painter::new(
+            ctx.clone(), // ctx is cloned in egui implementations.
+            egui::LayerId::new(egui::Order::Background, BOARD_ID.into()),
+            board_rect,
         );
 
-        self.save.draw(ctx, &mut to_send);
-        self.load.draw(ctx);
-
-        // Stores the size the board will take up.
-        let mut board_rect = Rect::from_min_max(
-            (0.0, 0.0).into(),
-            ctx.input(|i| i.screen_rect()).right_bottom(),
-        );
-
-        // Draw settings menu
-        if let Some(inner_response) = self.settings.draw(ctx) {
-            let size = inner_response.response.rect.size();
-            *board_rect.left_mut() += size.x;
-        };
-
-        let show = egui::TopBottomPanel::top(TOP_PANEL).show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                if ui.button("Start").clicked() {
-                    to_send.push(UiPacket::Start);
-                };
-                if ui.button("Stop").clicked() {
-                    to_send.push(UiPacket::Stop);
-                }
-
-                if ui.button("Settings").clicked() {
-                    self.settings.open = !self.settings.open;
-                }
-
-                if ui.button("Save").clicked() {
-                    self.save.show = !self.save.show;
-                }
-
-                if ui.button("Load").clicked() {
-                    self.load.show = !self.load.show
-                }
-
-                #[cfg(debug_assertions)]
-                {
-                    if ui.button("Debug Menu").clicked() {
-                        self.debug_menu_open = !self.debug_menu_open
-                    }
-                }
-            })
+        // Number of cell in x axis
+        let x_cells = (board_rect.right() / self.settings.cell.size).ceil() as i32;
+        // Create iterator of x position for cells
+        let x_iter = (0..x_cells).map(|x| {
+            let mut x_cell = x as f32;
+            x_cell *= self.settings.cell.size;
+            x_cell
         });
 
-        let top_size = show.response.rect.size();
+        // Number of cells in y axis
+        let y_cells = (board_rect.bottom() / self.settings.cell.size).floor() as i32;
+        // Create iterator of y position for cells
+        let y_iter = (0..y_cells).map(|y| {
+            let mut y_cell = y as f32;
+            y_cell *= self.settings.cell.size;
+            y_cell
+        });
 
-        // Account for top panel.
-        *board_rect.top_mut() += top_size.y;
-        *board_rect.bottom_mut() += top_size.y;
+        // Modify displayed area to follow cells displayed.
+        self.display_area
+            .modify_x(x_cells - self.display_area.x_difference());
+        self.display_area
+            .modify_y(y_cells - self.display_area.y_difference());
 
-        // board_rect must not change after this point
-        let board_rect = board_rect;
+        // Draw the display board.
+        for (x_index, x_origin) in x_iter.enumerate() {
+            for (y_index, y_origin) in y_iter.clone().enumerate() {
+                let rect = Rect::from_two_pos(
+                    pos2(x_origin, y_origin),
+                    pos2(
+                        x_origin + self.settings.cell.size,
+                        y_origin + self.settings.cell.size,
+                    ),
+                );
 
+                let rect = egui::epaint::RectShape::new(
+                    rect,
+                    egui::CornerRadius::ZERO,
+                    {
+                        match self
+                            .display_cache
+                            .get_cell((x_index as i32, y_index as i32))
+                        {
+                            Cell::Alive => self.settings.cell.alive_colour,
+                            Cell::Dead => self.settings.cell.dead_colour,
+                        }
+                    },
+                    egui::Stroke::new(1.0, self.settings.cell.grid_colour),
+                    egui::StrokeKind::Middle,
+                );
+
+                layer_painter.add(rect);
+            }
+        }
+    }
+
+    /// Process interactions for the board.
+    fn board_interaction(
+        &mut self,
+        ctx: &egui::Context,
+        to_send: &mut Vec<UiPacket>,
+        board_rect: Rect,
+    ) {
         // Draws the central panel to provide the area for user interaction.
         egui::CentralPanel::default().show(ctx, |ui| {
             let interact = ui.interact(
@@ -431,196 +598,48 @@ impl eframe::App for MyApp<'_> {
                 }
             }
         });
-
-        // Creates the painter for the board display.
-        let layer_painter = Painter::new(
-            ctx.clone(), // ctx is cloned in egui implementations.
-            egui::LayerId::new(egui::Order::Background, BOARD_ID.into()),
-            board_rect,
-        );
-
-        // Number of cell in x axis
-        let x_cells = (board_rect.right() / self.settings.cell.size).ceil() as i32;
-        // Create iterator of x position for cells
-        let x_iter = (0..x_cells).map(|x| {
-            let mut x_cell = x as f32;
-            x_cell *= self.settings.cell.size;
-            x_cell
-        });
-
-        // Number of cells in y axis
-        let y_cells = (board_rect.bottom() / self.settings.cell.size).floor() as i32;
-        // Create iterator of y position for cells
-        let y_iter = (0..y_cells).map(|y| {
-            let mut y_cell = y as f32;
-            y_cell *= self.settings.cell.size;
-            y_cell
-        });
-
-        // Modify displayed area to follow cells displayed.
-        self.display_area
-            .modify_x(x_cells - self.display_area.x_difference());
-        self.display_area
-            .modify_y(y_cells - self.display_area.y_difference());
-
-        // Draw the display board.
-        for (x_index, x_origin) in x_iter.enumerate() {
-            for (y_index, y_origin) in y_iter.clone().enumerate() {
-                let rect = Rect::from_two_pos(
-                    pos2(x_origin, y_origin),
-                    pos2(
-                        x_origin + self.settings.cell.size,
-                        y_origin + self.settings.cell.size,
-                    ),
-                );
-
-                let rect = egui::epaint::RectShape::new(
-                    rect,
-                    egui::CornerRadius::ZERO,
-                    {
-                        match self
-                            .display_cache
-                            .get_cell((x_index as i32, y_index as i32))
-                        {
-                            Cell::Alive => self.settings.cell.alive_colour,
-                            Cell::Dead => self.settings.cell.dead_colour,
-                        }
-                    },
-                    egui::Stroke::new(1.0, self.settings.cell.grid_colour),
-                    egui::StrokeKind::Middle,
-                );
-
-                layer_painter.add(rect);
-            }
-        }
-
-        // Load selected board
-        if let Some(save_preview) = self.load.save_to_load() {
-            let mut save_location = self.settings.file.save_location.clone();
-            let filename = save_preview.get_filename();
-
-            save_location.push(filename);
-
-            match persistence::load_board_data(save_location.as_path()) {
-                Ok(save) => {
-                    to_send.push(UiPacket::LoadBoard { board: save });
-                    self.toasts.add(
-                        Toast::new()
-                            .kind(egui_toast::ToastKind::Success)
-                            .options(toast_options())
-                            .text(format!(
-                                "Successfully loaded save \"{}\"",
-                                save_preview.get_name()
-                            )),
-                    );
-                }
-                Err(err) => {
-                    self.toasts.add(
-                        Toast::new()
-                            .kind(egui_toast::ToastKind::Error)
-                            .options(toast_options())
-                            .text(format!("Unable to load save file: {err}")),
-                    );
-                }
-            };
-        }
-
-        // If update is not requested the board will become outdated.
-        // This causes higher cpu usage, but only by one/two %.
-        ctx.request_repaint();
-
-        // Process fallible code //
-
-        // Update display
-        match self.display_update.try_lock() {
-            Ok(mut board) => {
-                if let Some(board) = board.take() {
-                    self.display_cache = board;
-                }
-            }
-            Err(std::sync::TryLockError::WouldBlock) => {
-                // The display cache can still be used.
-            }
-            Err(std::sync::TryLockError::Poisoned(err)) => {
-                self.error_occurred = Some(ErrorData::from_error_and_log(
-                    lang::SHARED_DISPLAY_POISIONED,
-                    err,
-                ));
-                return;
-            }
-        }
-
-        // Process user interaction
-        for message in to_send {
-            if let Err(err) = self.ui_sender.send(message) {
-                self.error_occurred = Some(ErrorData::from_error_and_log(lang::SEND_ERROR, err));
-                return;
-            }
-        }
-
-        loop {
-            // Receive packets from simulatior
-            let simulator_packet = match self.simulator_receiver.try_recv() {
-                Ok(simulator_packet) => simulator_packet,
-                Err(TryRecvError::Empty) => {
-                    break;
-                }
-                Err(TryRecvError::Disconnected) => {
-                    self.error_occurred = Some(ErrorData::from_error(lang::RECEIVE_ERROR));
-                    return;
-                }
-            };
-
-            // Act on the simulator packets
-            match simulator_packet {
-                SimulatorPacket::BoardSave {
-                    board: simulation_save,
-                } => {
-                    let name = self.save.get_name().to_owned();
-                    let description = self.save.get_description().to_owned();
-                    let mut tags = self.save.get_tags().clone();
-                    let save_path = self.settings.file.save_location.clone();
-
-                    // Convert tags
-                    let tags = tags
-                        .iter_mut()
-                        .map(|tag| tag.clone().into_boxed_str())
-                        .collect();
-
-                    let (tx, rx) = oneshot::channel();
-
-                    self.save.set_waiting(rx);
-                    // Run task in IO thread
-                    self.io_thread.execute(move || {
-                        std::thread::sleep(Duration::from_secs(1));
-
-                        let _ = tx
-                            .send(
-                                SaveBuilder::new(simulation_save)
-                                    .name(name)
-                                    .desciprtion(description)
-                                    .tags(tags)
-                                    .save(save_path),
-                            )
-                            .inspect_err(|e| {
-                                eprintln!("Could not communicate with ui thread: {e}")
-                            });
-                    });
-                }
-                SimulatorPacket::BlueprintSave { blueprint } => todo!(),
-            }
-        }
-
-        // Time framerate
-        #[cfg(debug_assertions)]
-        {
-            let end_time = Instant::now();
-            self.last_frame_time = end_time - start_time;
-        }
     }
+}
 
-    fn save(&mut self, storage: &mut dyn eframe::Storage) {
-        eframe::set_value(storage, Settings::SAVE_KEY, &self.settings);
+/// Draws the fatial error in the middle of the screen.
+fn handle_error(ctx: &egui::Context, error_data: &mut ErrorData) {
+    // Ensures the background is empty.
+    egui::CentralPanel::default().show(ctx, |_ui| {});
+
+    // Calculates the position of the window.
+    let screen_center = ctx.screen_rect().center();
+    let position = error_data
+        .window_size
+        .map(|size| {
+            let x_offset = size.x / 2.0;
+            let y_offset = size.y / 2.0;
+
+            let x = screen_center.x - x_offset;
+            let y = screen_center.y - y_offset;
+
+            egui::pos2(x, y)
+        })
+        .unwrap_or(screen_center);
+
+    // Create pop-up window to display error.
+    // Centering normal text is a nightmare so a pop-up will sufice.
+    let window = egui::Window::new(lang::UNRECOVERABLE_ERROR_HEADER)
+        .movable(false)
+        .order(egui::Order::Foreground)
+        .current_pos(position)
+        .resizable(false)
+        .show(ctx, |ui| {
+            ui.label(format!(
+                "{}\"{}\"",
+                lang::ERROR_MESSAGE,
+                error_data.error_message
+            ));
+            ui.label(lang::ERROR_ADVICE)
+        });
+
+    // Calculate the current size of the pop-up to use for centering on the next frame.
+    if let Some(window) = window {
+        error_data.window_size = Some(window.response.rect.size());
     }
 }
 
