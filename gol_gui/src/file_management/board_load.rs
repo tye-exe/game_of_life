@@ -1,195 +1,27 @@
-use std::io;
-use std::path::{Path, PathBuf};
-use std::result::Result;
-
+use crate::app::toast_options;
+use crate::lang;
 use egui::RichText;
 use egui_toast::{Toast, Toasts};
 use gol_lib::persistence::ParseError;
-use gol_lib::persistence::save::BoardSaveError;
-use gol_lib::{
-    communication::UiPacket,
-    persistence::{self, preview::SavePreview},
-};
+use gol_lib::persistence::{self, preview::SavePreview};
 use oneshot::TryRecvError;
-
-use crate::app::toast_options;
-use crate::{lang, settings::Settings};
+use std::io;
+use std::path::Path;
+use std::path::PathBuf;
+use std::result::Result;
 
 lang! {
-    WINDOW, "Save Board";
-    NAME, "Name:";
-    DESCRIPTION, "Description:";
-    BUTTON, "Save";
     LOAD_WINDOW, "Load Board";
-    TAGS, "Tags:";
-    SAVE_SUCCESS, "Successfully saved board.";
-    SAVE_ERROR, "Unable to save board:";
-    SAVE_UNKNOWN, "Cannot verify save success.";
     LOAD_FAILED, "Cannot retrieve save previews.";
-    ADD_TAG, "Add a new tag to this save.";
-    REMOVE_TAG, "Remove this tag from the save.";
     DELETE_FILE_SUCCESS, "Successfully delete file:";
     DELETE_FILE_ERROR, "Failed to delete file:"
 }
 
-const LOAD_GRID: &str = "Load Grid";
-
-/// The status regarding user save requests.
-#[derive(Default, kinded::Kinded)]
-pub enum SaveStatus {
-    /// No save is pending.
-    #[default]
-    Idle,
-    /// A save has been requested.
-    Request,
-    /// Wait for response.
-    Waiting {
-        response_receiver: oneshot::Receiver<Result<Box<Path>, BoardSaveError>>,
-    },
-}
-
-pub(crate) struct Save {
-    pub(crate) show: bool,
-    save_name: String,
-    save_description: String,
-    save_tags: Vec<String>,
-
-    save_status: SaveStatus,
-}
-
-impl Default for Save {
-    fn default() -> Self {
-        Self {
-            show: Default::default(),
-            save_name: Default::default(),
-            save_description: Default::default(),
-            save_tags: vec!["".to_owned()],
-            save_status: Default::default(),
-        }
-    }
-}
-
-impl Save {
-    pub fn get_name(&self) -> &str {
-        &self.save_name
-    }
-
-    pub fn get_description(&self) -> &str {
-        &self.save_description
-    }
-
-    pub fn get_tags(&self) -> &Vec<String> {
-        &self.save_tags
-    }
-
-    /// Changes the internal state from [SaveStatus::Request] to [SaveStatus::Waiting].
-    pub fn set_waiting(
-        &mut self,
-        response_receiver: oneshot::Receiver<Result<Box<Path>, BoardSaveError>>,
-    ) {
-        if self.save_status.kind() != SaveStatusKind::Request {
-            return;
-        }
-
-        self.save_status = SaveStatus::Waiting { response_receiver }
-    }
-
-    /// Draws the save menu if it should be shown.
-    pub(crate) fn draw(&mut self, ctx: &egui::Context, to_send: &mut Vec<UiPacket>) {
-        egui::Window::new(WINDOW)
-            .open(&mut (self.show))
-            .show(ctx, |ui| {
-                ui.horizontal(|ui| {
-                    // Gray out the button if a save has been requested.
-                    let button = ui.add_enabled(
-                        self.save_status.kind() != SaveStatusKind::Waiting,
-                        egui::Button::new(BUTTON),
-                    );
-                    // Only allow one save to be requested at a time.
-                    if button.clicked() && self.save_status.kind() == SaveStatusKind::Idle {
-                        self.save_status = SaveStatus::Request;
-                        to_send.push(UiPacket::SaveBoard);
-                    }
-
-                    // Show spinner in right corner.
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        // Show a spinner whilst waiting for save.
-                        if self.save_status.kind() == SaveStatusKind::Waiting {
-                            ui.spinner();
-                        }
-                    });
-                });
-
-                ui.separator();
-
-                ui.label(NAME);
-                ui.text_edit_singleline(&mut self.save_name);
-
-                ui.label(DESCRIPTION);
-                ui.text_edit_multiline(&mut self.save_description);
-
-                ui.label(TAGS);
-                self.save_tags.retain_mut(|tag| {
-                    ui.horizontal(|ui| {
-                        ui.text_edit_singleline(tag);
-                        !ui.small_button("-").on_hover_text(REMOVE_TAG).clicked()
-                    })
-                    .inner
-                });
-
-                if ui.small_button("+").on_hover_text(ADD_TAG).clicked() {
-                    self.save_tags.push(String::new());
-                }
-            });
-    }
-
-    /// Updates the internal state.
-    ///
-    /// This should be run every frame.
-    pub fn update(&mut self, ctx: &egui::Context, settings: &mut Settings, toasts: &mut Toasts) {
-        // If waiting for a save response, check if there has been a response.
-        if let SaveStatus::Waiting { response_receiver } = &self.save_status {
-            match response_receiver.try_recv() {
-                Ok(response) => {
-                    match response {
-                        Ok(_) => {
-                            toasts.add(
-                                Toast::new()
-                                    .kind(egui_toast::ToastKind::Info)
-                                    .options(toast_options())
-                                    .text(SAVE_SUCCESS),
-                            );
-                        }
-                        Err(err) => {
-                            toasts.add(
-                                Toast::new()
-                                    .kind(egui_toast::ToastKind::Error)
-                                    .options(toast_options())
-                                    .text(format!("{SAVE_ERROR} {err}",)),
-                            );
-                        }
-                    }
-                    self.save_status = SaveStatus::Idle;
-                }
-                Err(TryRecvError::Disconnected) => {
-                    toasts.add(
-                        Toast::new()
-                            .kind(egui_toast::ToastKind::Warning)
-                            .options(toast_options())
-                            .text(SAVE_UNKNOWN),
-                    );
-
-                    self.save_status = SaveStatus::Idle;
-                }
-                Err(TryRecvError::Empty) => (),
-            }
-        }
-    }
-}
+pub(crate) const LOAD_GRID: &str = "Load Grid";
 
 /// The different states the load menu can be in.
 #[derive(kinded::Kinded, Default)]
-enum LoadState {
+pub(crate) enum LoadState {
     /// The preview will be requested.
     #[default]
     Request,
@@ -208,11 +40,11 @@ enum LoadState {
 }
 
 /// Contains a parsed preview.
-struct Preview {
+pub(crate) struct Preview {
     /// The parsed preview.
-    preview: Result<SavePreview, ParseError>,
+    pub(crate) preview: Result<SavePreview, ParseError>,
     /// Whether the preview has been selected by the user.
-    selected: bool,
+    pub(crate) selected: bool,
 }
 
 impl From<Result<SavePreview, ParseError>> for Preview {
@@ -228,7 +60,7 @@ impl From<Result<SavePreview, ParseError>> for Preview {
 pub(crate) struct Load {
     pub(crate) show: bool,
 
-    saves: LoadState,
+    pub(crate) saves: LoadState,
 }
 
 impl Default for Load {
@@ -460,7 +292,7 @@ impl Load {
 }
 
 /// Creates toasts depending on the status of deleting files.
-fn delete_response(
+pub(crate) fn delete_response(
     toats: &mut Toasts,
     delete_result: &mut Option<oneshot::Receiver<Box<[(Result<(), io::Error>, PathBuf)]>>>,
 ) {
@@ -512,13 +344,13 @@ fn delete_response(
     }
 }
 
-type DeleteReceiver = oneshot::Receiver<Box<[(Result<(), std::io::Error>, PathBuf)]>>;
+pub(crate) type DeleteReceiver = oneshot::Receiver<Box<[(Result<(), std::io::Error>, PathBuf)]>>;
 
 /// Attempt to delete the selected save files.
 ///
 /// This function runs the file deletion on the background thread, with the results of each deletion alonside the filepath
 /// being sent on the channel returned from this function.
-fn delete_selected_saves(
+pub(crate) fn delete_selected_saves(
     save_location: PathBuf,
     previews: &Box<[Preview]>,
     io_thread: &threadpool::ThreadPool,
@@ -563,7 +395,7 @@ fn delete_selected_saves(
 }
 
 /// Shows the grid of loaded files.
-fn show_grid(saves: &mut Box<[Preview]>) -> impl FnOnce(&mut egui::Ui) + use<'_> {
+pub(crate) fn show_grid(saves: &mut Box<[Preview]>) -> impl FnOnce(&mut egui::Ui) + use<'_> {
     move |ui| {
         let mut id = egui::Id::new(897234);
 
@@ -615,7 +447,7 @@ fn show_grid(saves: &mut Box<[Preview]>) -> impl FnOnce(&mut egui::Ui) + use<'_>
 }
 
 /// Changes the given ui to display a valid save file.
-fn format_valid(ui: &mut egui::Ui, save: &SavePreview) {
+pub(crate) fn format_valid(ui: &mut egui::Ui, save: &SavePreview) {
     let text = save.get_name().trim().to_owned();
     if text.is_empty() {
         ui.heading(RichText::new("No Name").italics());
@@ -639,7 +471,7 @@ fn format_valid(ui: &mut egui::Ui, save: &SavePreview) {
 }
 
 /// Changes the given ui to display an invalid save file.
-fn format_error(ui: &mut egui::Ui, err: &ParseError) {
+pub(crate) fn format_error(ui: &mut egui::Ui, err: &ParseError) {
     ui.heading(RichText::new("Invalid Save").italics());
 
     let string_path = err
