@@ -232,6 +232,11 @@ impl<'a> MyApp<'a> {
     fn check_keybinds(&mut self, ctx: &egui::Context) {
         let keybind = &mut self.settings.keybind;
 
+        // If the user is typing don't allow keybinds.
+        if ctx.wants_keyboard_input() {
+            return;
+        }
+
         ctx.input_mut(|input| {
             if keybind.settings_menu.pressed(input) {
                 self.settings.open = !self.settings.open;
