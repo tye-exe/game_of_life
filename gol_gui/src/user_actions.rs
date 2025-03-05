@@ -8,6 +8,7 @@ const UNDO_BUFFER: usize = 32;
 
 /// Stores a buffer of user actions that can be undone or redone.
 #[derive(Default)]
+#[cfg_attr(test, derive(Debug, PartialEq))]
 pub(crate) struct History {
     /// A FIFO Queue of interactions the user has made with the board.
     interactions: CircularBuffer<UNDO_BUFFER, Action>,
@@ -62,6 +63,12 @@ impl History {
         }
 
         Vec::new()
+    }
+
+    /// Empties the action queue.
+    pub(crate) fn clear(&mut self) {
+        self.interactions.clear();
+        self.undo_index = 0;
     }
 }
 
@@ -229,10 +236,21 @@ mod tests {
             }]
         );
     }
+
+    /// [`History`] after clear must be identical to a new history.
+    #[test]
+    fn clear() {
+        let mut history = fill_buffer();
+
+        history.clear();
+
+        assert_eq!(history, History::default());
+    }
 }
 
 /// The possible actions the user can perform to edit the board.
 #[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq))]
 pub(crate) enum Action {
     SetAlive { position: GlobalPosition },
     SetDead { position: GlobalPosition },

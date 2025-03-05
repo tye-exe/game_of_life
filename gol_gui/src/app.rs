@@ -120,6 +120,7 @@ impl eframe::App for MyApp<'_> {
             ui.horizontal(|ui| {
                 if ui.button("Start").clicked() {
                     to_send.push(UiPacket::Start);
+                    self.history.clear();
                 };
                 if ui.button("Stop").clicked() {
                     to_send.push(UiPacket::Stop);
