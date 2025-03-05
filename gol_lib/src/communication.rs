@@ -6,7 +6,7 @@ use crate::{
 };
 
 /// The data packets that the UI will send to the simulator.
-#[cfg_attr(any(test, debug_assertions), derive(Debug))]
+#[cfg_attr(any(test, debug_assertions), derive(Debug, PartialEq))]
 pub enum UiPacket {
     /// Requests for a new display area to be rendered.
     DisplayArea { new_area: Area },
@@ -65,7 +65,7 @@ pub enum SimulatorPacket {
     BlueprintSave { blueprint: SimulationBlueprint },
 }
 
-#[cfg_attr(any(test, debug_assertions), derive(Debug))]
+#[cfg_attr(any(test, debug_assertions), derive(Debug, PartialEq))]
 pub struct SimulationSpeed {
     pub(crate) ticks_per_second: Option<NonZeroU32>,
 }

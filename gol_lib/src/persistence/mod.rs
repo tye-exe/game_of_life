@@ -40,7 +40,7 @@ impl SimulationSave {
 
 /// The board data that a blueprint consists of.
 #[derive(serde::Deserialize)]
-#[cfg_attr(any(test, debug_assertions), derive(Debug))]
+#[cfg_attr(any(test, debug_assertions), derive(Debug, PartialEq))]
 pub struct SimulationBlueprint {
     pub(crate) x_size: i32,
     pub(crate) y_size: i32,
