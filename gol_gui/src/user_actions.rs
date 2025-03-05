@@ -70,6 +70,20 @@ impl History {
         self.interactions.clear();
         self.undo_index = 0;
     }
+
+    /// Returns true if there are actions that can be undone.
+    pub(crate) fn can_undo(&self) -> bool {
+        self.interactions.get(self.undo_index).is_some()
+    }
+
+    /// Returns true if there are actions can that can redone.
+    pub(crate) fn can_redo(&self) -> bool {
+        if self.undo_index == 0 {
+            return false;
+        }
+
+        self.interactions.get(self.undo_index - 1).is_some()
+    }
 }
 
 #[cfg(test)]
@@ -245,6 +259,32 @@ mod tests {
         history.clear();
 
         assert_eq!(history, History::default());
+    }
+
+    /// Can undo must only be true when there are actions to undo.
+    #[test]
+    fn can_undo() {
+        let mut history = fill_buffer();
+
+        assert!(history.can_undo(), "There are actions that can be undone");
+
+        for _ in 0..UNDO_BUFFER {
+            let _ = history.undo();
+        }
+
+        assert!(!history.can_undo(), "There is no more actions to undo");
+    }
+
+    /// Can redo must only be true when there are arctions to redo.
+    #[test]
+    fn can_redo() {
+        let mut history = fill_buffer();
+
+        assert!(!history.can_redo(), "There are no actions to redo");
+
+        let _ = history.undo();
+
+        assert!(history.can_redo(), "There are actions that can be redone");
     }
 }
 

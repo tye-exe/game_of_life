@@ -138,11 +138,17 @@ impl eframe::App for MyApp<'_> {
                     self.load.show = !self.load.show
                 }
 
-                if ui.button("Undo").clicked() {
+                if ui
+                    .add_enabled(self.history.can_undo(), egui::Button::new("Undo"))
+                    .clicked()
+                {
                     to_send.append(&mut self.history.undo());
                 }
 
-                if ui.button("Redo").clicked() {
+                if ui
+                    .add_enabled(self.history.can_redo(), egui::Button::new("Redo"))
+                    .clicked()
+                {
                     to_send.append(&mut self.history.redo());
                 }
 
