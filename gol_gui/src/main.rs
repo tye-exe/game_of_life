@@ -10,6 +10,7 @@ mod app;
 mod args;
 mod file_management;
 mod settings;
+mod user_actions;
 
 fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init();
