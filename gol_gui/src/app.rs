@@ -8,7 +8,7 @@ use crate::{
     settings::Settings,
     user_actions::{Action, History},
 };
-use edit::EditState;
+use edit::{EditState, draw_interaction, preview_interaction, select_interaction};
 use egui::{Id, Painter, Rect, pos2};
 use egui_keybind::Bind;
 use egui_toast::{Toast, Toasts};
@@ -170,13 +170,19 @@ impl eframe::App for MyApp<'_> {
                         ui.selectable_value(
                             &mut self.edit_state,
                             EditState::Preview,
-                            EditState::Preview.to_string(),
+                            EditState::PREVIEW_STR,
                         );
 
                         ui.selectable_value(
                             &mut self.edit_state,
                             EditState::Draw,
-                            EditState::Draw.to_string(),
+                            EditState::DRAW_STR,
+                        );
+
+                        ui.selectable_value(
+                            &mut self.edit_state,
+                            EditState::SELECT_DEFAULT,
+                            EditState::SELECT_STR,
                         );
                     });
 
@@ -590,73 +596,24 @@ impl<'a> MyApp<'a> {
             })
             .inner;
 
-        match self.edit_state {
-            EditState::Preview => self.preview_interaction(to_send, interact),
-            EditState::Draw => self.draw_interact(to_send, interact),
-        }
-    }
-
-    fn preview_interaction(&mut self, to_send: &mut Vec<UiPacket>, interact: egui::Response) {
-        // Scroll the display in response to user dragging mouse
-        if interact.dragged() {
-            let drag_delta = interact.drag_delta();
-            self.x_offset += drag_delta.x;
-            self.y_offset += drag_delta.y;
-
-            let mut modified_display = false;
-
-            // While loops are used as display can be dragged further than one cell in one frame.
-            while self.x_offset % self.settings.cell.size > 0.0 {
-                self.display_area.translate_x(-1);
-                self.x_offset -= self.settings.cell.size;
-                modified_display = true;
-            }
-
-            while self.x_offset % self.settings.cell.size < 0.0 {
-                self.display_area.translate_x(1);
-                self.x_offset += self.settings.cell.size;
-                modified_display = true;
-            }
-
-            while self.y_offset % self.settings.cell.size > 0.0 {
-                self.display_area.translate_y(-1);
-                self.y_offset -= self.settings.cell.size;
-                modified_display = true;
-            }
-
-            while self.y_offset % self.settings.cell.size < 0.0 {
-                self.display_area.translate_y(1);
-                self.y_offset += self.settings.cell.size;
-                modified_display = true;
-            }
-
-            if modified_display {
-                to_send.push(UiPacket::DisplayArea {
-                    new_area: self.display_area,
-                });
-            }
-        }
-    }
-    fn draw_interact(&mut self, to_send: &mut Vec<UiPacket>, interact: egui::Response) {
-        // Toggles the state of a cell when it is clicked.
-        if let (true, Some(position)) = (interact.clicked(), interact.interact_pointer_pos()) {
-            // Position of cell
-            let cell_x = (position.x / self.settings.cell.size).trunc() as i32;
-            let cell_y = (position.y / self.settings.cell.size).trunc() as i32;
-
-            // Position of displayed board
-            let origin_x = self.display_area.get_min().get_x();
-            let origin_y = self.display_area.get_min().get_y();
-
-            let position = GlobalPosition::new(cell_x + origin_x, cell_y + origin_y);
-            let cell_state = self.display_cache.get_cell((cell_x, cell_y)).invert();
-
-            self.history.add_action(Action::set(position, cell_state));
-
-            to_send.push(UiPacket::Set {
-                position,
-                cell_state,
-            });
+        match &mut self.edit_state {
+            EditState::Preview => preview_interaction(
+                &mut self.x_offset,
+                &mut self.y_offset,
+                &mut self.display_area,
+                self.settings.cell.size,
+                to_send,
+                interact,
+            ),
+            EditState::Draw => draw_interaction(
+                self.settings.cell.size,
+                &mut self.display_area,
+                &mut self.display_cache,
+                &mut self.history,
+                to_send,
+                interact,
+            ),
+            EditState::Select { positions } => select_interaction(ctx, interact, positions),
         }
     }
 }
