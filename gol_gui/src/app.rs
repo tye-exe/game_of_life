@@ -1,11 +1,14 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
+mod edit;
+
 use crate::{
     file_management::{board_load::Load, board_save::Save},
     lang,
     settings::Settings,
     user_actions::{Action, History},
 };
+use edit::EditState;
 use egui::{Id, Painter, Rect, pos2};
 use egui_keybind::Bind;
 use egui_toast::{Toast, Toasts};
@@ -29,6 +32,12 @@ pub(crate) const SETTINGS_PANEL: &str = "Settings_Panel";
 /// The egui id for the debug window.
 #[cfg(debug_assertions)]
 const DEBUG_WINDOW: &str = "Debug_Window";
+/// The egui id for the edit mode selection.
+const EDIT_MODE_SELECT: &str = "Edit Mode";
+
+lang! {
+    EDIT_PREVIEW, "Edit Mode:"
+}
 
 /// The struct that contains the data for the gui of my app.
 pub struct MyApp<'a> {
@@ -72,6 +81,9 @@ pub struct MyApp<'a> {
 
     /// The recent edits the user made to the board.
     history: History,
+
+    /// The current edit mode the user is in
+    edit_state: EditState,
 }
 
 impl eframe::App for MyApp<'_> {
@@ -151,6 +163,22 @@ impl eframe::App for MyApp<'_> {
                 {
                     to_send.append(&mut self.history.redo());
                 }
+
+                egui::ComboBox::from_id_salt(EDIT_MODE_SELECT)
+                    .selected_text(format!("{EDIT_PREVIEW} {}", self.edit_state))
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(
+                            &mut self.edit_state,
+                            EditState::Preview,
+                            EditState::Preview.to_string(),
+                        );
+
+                        ui.selectable_value(
+                            &mut self.edit_state,
+                            EditState::Draw,
+                            EditState::Draw.to_string(),
+                        );
+                    });
 
                 #[cfg(debug_assertions)]
                 {
@@ -330,6 +358,7 @@ impl<'a> MyApp<'a> {
             io_thread,
             toasts: Toasts::new(),
             history: Default::default(),
+            edit_state: Default::default(),
         };
 
         // Load stored configurations
@@ -561,6 +590,13 @@ impl<'a> MyApp<'a> {
             })
             .inner;
 
+        match self.edit_state {
+            EditState::Preview => self.preview_interaction(to_send, interact),
+            EditState::Draw => self.draw_interact(to_send, interact),
+        }
+    }
+
+    fn preview_interaction(&mut self, to_send: &mut Vec<UiPacket>, interact: egui::Response) {
         // Scroll the display in response to user dragging mouse
         if interact.dragged() {
             let drag_delta = interact.drag_delta();
@@ -600,7 +636,8 @@ impl<'a> MyApp<'a> {
                 });
             }
         }
-
+    }
+    fn draw_interact(&mut self, to_send: &mut Vec<UiPacket>, interact: egui::Response) {
         // Toggles the state of a cell when it is clicked.
         if let (true, Some(position)) = (interact.clicked(), interact.interact_pointer_pos()) {
             // Position of cell
