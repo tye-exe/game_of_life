@@ -469,6 +469,10 @@ impl<'a> MyApp<'a> {
                         None => "Offscreen".to_owned(),
                     },
                 ));
+                ui.label(format!(
+                    "Generation: {}",
+                    self.display_cache.get_generation()
+                ));
 
                 ui.separator();
                 ui.heading("Rendering Stats");
