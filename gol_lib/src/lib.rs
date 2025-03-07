@@ -13,12 +13,15 @@ pub use position::GlobalPosition;
 pub use simulator::Simulator;
 
 use communication::{SimulatorPacket, UiPacket};
+use std::marker::Send;
 use std::sync::{Arc, Mutex, mpsc};
 use std::{
     sync::mpsc::{Receiver, Sender},
     thread,
     time::Duration,
 };
+
+const UI_CLOSED_COMS: &str = "UI closed communication to simulation!";
 
 /// A pointer to the [`Mutex`] used to share the display board.
 /// The time either the ui or the [`Simulator`] will hold a lock on the [`Mutex`] is not guaranteed.
@@ -48,11 +51,37 @@ pub fn create_channels() -> ((UiSender, UiReceiver), (SimulatorSender, Simulator
     (mpsc::channel(), mpsc::channel())
 }
 
+/// Starts the simulation on a new thread without a callback.
+///
+/// For more information see [`start_simulator_with_callback`].
 pub fn start_simulator(
-    mut board: impl Simulator + 'static,
+    simulator: impl Simulator + 'static,
     ui_receiver: Receiver<UiPacket>,
     simulator_sender: Sender<SimulatorPacket>,
 ) -> Result<thread::JoinHandle<()>, std::io::Error> {
+    start_simulator_with_callback(simulator, ui_receiver, simulator_sender, (), |_, _| {})
+}
+
+/// Starts the given simulation on a new thread.
+/// The given callback is called on every tick of the simulation.
+/// Due to this the callback **should not** be computationally intensive.
+///
+/// The callback will not have any effect on the state of the simulation.
+/// The only value it can mutate is the given `Data` value, which allows the callback to persist its own state between simulation ticks.
+///
+/// # Panics
+/// If the callback panics, this will be propagrated to the simulation thread and terminate the simulation.
+pub fn start_simulator_with_callback<Data, Callback>(
+    mut simulator: impl Simulator + 'static,
+    ui_receiver: Receiver<UiPacket>,
+    simulator_sender: Sender<SimulatorPacket>,
+    mut data: Data,
+    mut callback: Callback,
+) -> Result<thread::JoinHandle<()>, std::io::Error>
+where
+    Callback: FnMut(&mut Data, IsRunning) + Send + 'static,
+    Data: Send + 'static,
+{
     thread::Builder::new()
         .name("Simulator_Thread".into())
         .spawn(move || {
@@ -88,33 +117,33 @@ pub fn start_simulator(
 
                     match ui_packet {
                         UiPacket::DisplayArea { new_area } => {
-                            board.set_display_area(new_area);
+                            simulator.set_display_area(new_area);
                             display_needs_updating = true;
                         }
                         UiPacket::Set {
                             position,
                             cell_state,
                         } => {
-                            board.set(position, cell_state);
+                            simulator.set(position, cell_state);
                             display_needs_updating = true;
                         }
                         UiPacket::SaveBoard => {
-                            let board = board.save_board();
+                            let board = simulator.save_board();
                             send_packet(SimulatorPacket::BoardSave { board });
                         }
                         UiPacket::LoadBoard { board: new_board } => {
-                            board.load_board(new_board);
+                            simulator.load_board(new_board);
                             display_needs_updating = true;
                         }
                         UiPacket::SaveBlueprint { area } => {
-                            let blueprint = board.save_blueprint(area);
+                            let blueprint = simulator.save_blueprint(area);
                             send_packet(SimulatorPacket::BlueprintSave { blueprint });
                         }
                         UiPacket::LoadBlueprint {
                             load_position,
                             blueprint,
                         } => {
-                            board.load_blueprint(load_position, blueprint);
+                            simulator.load_blueprint(load_position, blueprint);
                             display_needs_updating = true;
                         }
                         UiPacket::Start => is_running = true,
@@ -137,10 +166,13 @@ pub fn start_simulator(
                     }
                 }
 
+                // Execute the user defined callback with the user data.
+                callback(&mut data, IsRunning(is_running));
+
                 // If the game is not running then wait for ≈ 100ms before performing any updates to save resources.
                 if !is_running {
                     if display_needs_updating {
-                        board.update_display();
+                        simulator.update_display();
                         display_needs_updating = !display_needs_updating;
                     }
 
@@ -149,7 +181,7 @@ pub fn start_simulator(
                 }
 
                 if let Some(generation) = run_until {
-                    if generation >= board.get_generation() {
+                    if generation >= simulator.get_generation() {
                         is_running = false;
                         continue;
                     }
@@ -159,10 +191,24 @@ pub fn start_simulator(
                     tick_rate_limiter.tick();
                 }
 
-                board.tick();
-                board.update_display();
+                simulator.tick();
+                simulator.update_display();
             }
         })
 }
 
-const UI_CLOSED_COMS: &str = "UI closed communication to simulation!";
+/// This boolean value represents whether the simulation is currently running or not.
+///
+/// If it is true, the simulation is running.
+/// If it is false, the simulation is not running.
+///
+/// This value **cannot** be changed to control the state of the simulation.
+pub struct IsRunning(bool);
+
+impl std::ops::Deref for IsRunning {
+    type Target = bool;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
