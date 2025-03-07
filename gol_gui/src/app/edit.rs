@@ -6,34 +6,28 @@ use std::fmt::Display;
 
 use super::{Action, History};
 
-const SELECTION_LAYER: &str = "SELECTION_LAYER";
+lang! {
+    PREVIEW, "Preview";
+    DRAW, "Draw";
+    SELECT, "Select"
+}
 
 #[derive(Default, PartialEq, Clone, Copy)]
 pub(crate) enum EditState {
     #[default]
     Preview,
     Draw,
-    Select {
-        positions: Option<(Pos2, Pos2)>,
-    },
+    Select,
 }
 
-impl EditState {
-    pub const SELECT_DEFAULT: EditState = EditState::Select { positions: None };
-
-    lang! {
-        PREVIEW_STR, "Preview";
-        DRAW_STR, "Draw";
-        SELECT_STR, "Select"
-    }
-}
+impl EditState {}
 
 impl Display for EditState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
-            EditState::Preview => EditState::PREVIEW_STR,
-            EditState::Draw => EditState::DRAW_STR,
-            EditState::Select { .. } => EditState::SELECT_STR,
+            EditState::Preview => PREVIEW,
+            EditState::Draw => DRAW,
+            EditState::Select => SELECT,
         })
     }
 }
@@ -145,16 +139,4 @@ pub(crate) fn select_interaction(
     if let (true, Some(pointer_position)) = (interact.dragged(), ctx.pointer_interact_pos()) {
         *drag_end = pointer_position;
     }
-
-    let layer_id = egui::LayerId::new(egui::Order::Background, SELECTION_LAYER.into());
-    let rect = egui::Rect::from_two_pos(*drag_start, *drag_end);
-
-    let painter = egui::Painter::new(ctx.clone(), layer_id, interact.rect);
-    let rect_shape = egui::epaint::RectShape::stroke(
-        rect,
-        1.0,
-        egui::Stroke::new(5.0, ctx.theme().default_visuals().hyperlink_color),
-        egui::StrokeKind::Middle,
-    );
-    painter.add(rect_shape);
 }

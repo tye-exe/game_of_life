@@ -9,7 +9,7 @@ use crate::{
     user_actions::{Action, History},
 };
 use edit::{EditState, draw_interaction, preview_interaction, select_interaction};
-use egui::{Id, Painter, Rect, pos2};
+use egui::{Id, Painter, Pos2, Rect, pos2};
 use egui_keybind::Bind;
 use egui_toast::{Toast, Toasts};
 use gol_lib::{
@@ -34,6 +34,8 @@ pub(crate) const SETTINGS_PANEL: &str = "Settings_Panel";
 const DEBUG_WINDOW: &str = "Debug_Window";
 /// The egui id for the edit mode selection.
 const EDIT_MODE_SELECT: &str = "Edit Mode";
+/// The egui id for the layer the selection is being drawn on.
+const SELECTION_LAYER: &str = "SELECTION_LAYER";
 
 lang! {
     EDIT_PREVIEW, "Edit Mode:"
@@ -84,6 +86,8 @@ pub struct MyApp<'a> {
 
     /// The current edit mode the user is in
     edit_state: EditState,
+    /// The area the user has selected
+    selection: Option<(Pos2, Pos2)>,
 }
 
 impl eframe::App for MyApp<'_> {
@@ -170,19 +174,19 @@ impl eframe::App for MyApp<'_> {
                         ui.selectable_value(
                             &mut self.edit_state,
                             EditState::Preview,
-                            EditState::PREVIEW_STR,
+                            EditState::Preview.to_string(),
                         );
 
                         ui.selectable_value(
                             &mut self.edit_state,
                             EditState::Draw,
-                            EditState::DRAW_STR,
+                            EditState::Draw.to_string(),
                         );
 
                         ui.selectable_value(
                             &mut self.edit_state,
-                            EditState::SELECT_DEFAULT,
-                            EditState::SELECT_STR,
+                            EditState::Select,
+                            EditState::Select.to_string(),
                         );
                     });
 
@@ -206,6 +210,7 @@ impl eframe::App for MyApp<'_> {
 
         self.board_interaction(ctx, &mut to_send, board_rect);
         self.draw_board(ctx, board_rect);
+        self.draw_selection(ctx, board_rect);
 
         // Load selected board
         if let Some(save_preview) = self.load.save_to_load() {
@@ -365,6 +370,7 @@ impl<'a> MyApp<'a> {
             toasts: Toasts::new(),
             history: Default::default(),
             edit_state: Default::default(),
+            selection: None,
         };
 
         // Load stored configurations
@@ -613,7 +619,23 @@ impl<'a> MyApp<'a> {
                 to_send,
                 interact,
             ),
-            EditState::Select { positions } => select_interaction(ctx, interact, positions),
+            EditState::Select => select_interaction(ctx, interact, &mut self.selection),
+        }
+    }
+
+    fn draw_selection(&mut self, ctx: &egui::Context, board_rect: Rect) {
+        if let Some((ref mut drag_start, ref mut drag_end)) = self.selection {
+            let layer_id = egui::LayerId::new(egui::Order::Background, SELECTION_LAYER.into());
+            let rect = egui::Rect::from_two_pos(*drag_start, *drag_end);
+
+            let painter = egui::Painter::new(ctx.clone(), layer_id, board_rect);
+            let rect_shape = egui::epaint::RectShape::stroke(
+                rect,
+                1.0,
+                egui::Stroke::new(5.0, ctx.theme().default_visuals().hyperlink_color),
+                egui::StrokeKind::Middle,
+            );
+            painter.add(rect_shape);
         }
     }
 }
