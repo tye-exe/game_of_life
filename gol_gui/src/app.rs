@@ -243,10 +243,6 @@ impl eframe::App for MyApp<'_> {
             };
         }
 
-        // If update is not requested the board will become outdated.
-        // This causes higher cpu usage, but only by one/two %.
-        ctx.request_repaint();
-
         // Process fallible code //
 
         // Update display

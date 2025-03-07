@@ -12,6 +12,10 @@ mod file_management;
 mod settings;
 mod user_actions;
 
+struct Data {
+    context: egui::Context,
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init();
 
@@ -27,10 +31,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     let ((ui_sender, ui_receiver), (simulator_sender, simulator_receiver)) =
         gol_lib::create_channels();
 
-    // Start Simulator.
-    let simulator = gol_lib::start_simulator(board, ui_receiver, simulator_sender)
-        .inspect_err(|_| eprintln!("{}", error_text::CREATE_SIMULATION_THREAD))?;
-
     // Start IO thread.
     let io_threads = threadpool::Builder::new()
         .num_threads(1)
@@ -44,11 +44,32 @@ fn main() -> Result<(), Box<dyn Error>> {
         ..Default::default()
     };
 
+    // Needs to be initialised, so wrap it in an option.
+    let mut simulator = None;
+
     // The ui has to run on the main thread for compatibility purposes.
     eframe::run_native(
         lang::APP_NAME,
         native_options,
         Box::new(|cc| {
+            // Start Simulator in GUI closure to access to GUI context.
+            simulator = Some(
+                gol_lib::start_simulator_with_callback(
+                    board,
+                    ui_receiver,
+                    simulator_sender,
+                    Data {
+                        context: cc.egui_ctx.clone(),
+                    },
+                    |data, is_running| {
+                        if *is_running {
+                            data.context.request_repaint();
+                        }
+                    },
+                )
+                .inspect_err(|_| eprintln!("{}", error_text::CREATE_SIMULATION_THREAD))?,
+            );
+
             Ok(Box::new(MyApp::new(
                 cc,
                 shared_display,
@@ -66,7 +87,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
 
     // The retuned error does not implement the Error trait so panic instead.
-    simulator.join().expect(error_text::SIM_THREAD_TERM);
+    simulator
+        .map(|simulator| simulator.join().ok())
+        .flatten()
+        .expect(error_text::SIM_THREAD_TERM);
 
     io_threads.join();
 
