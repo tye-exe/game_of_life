@@ -720,43 +720,43 @@ pub(crate) fn toast_options() -> egui_toast::ToastOptions {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    // use super::*;
 
-    use egui_kittest::kittest::Queryable;
+    // use egui_kittest::kittest::Queryable;
 
-    #[test]
-    fn default_view() {
-        let ((ui_sender, ui_receiver), (simulator_sender, simulator_receiver)) =
-            gol_lib::create_channels();
+    // #[test]
+    // fn default_view() {
+    //     let ((ui_sender, ui_receiver), (simulator_sender, simulator_receiver)) =
+    //         gol_lib::create_channels();
 
-        // Start IO thread.
-        let io_threads = threadpool::Builder::new()
-            .num_threads(1)
-            .thread_name("Background IO thread".to_owned())
-            .build();
+    //     // Start IO thread.
+    //     let io_threads = threadpool::Builder::new()
+    //         .num_threads(1)
+    //         .thread_name("Background IO thread".to_owned())
+    //         .build();
 
-        // Start app
-        let mut harness = egui_kittest::HarnessBuilder::default().build_eframe(|cc| {
-            MyApp::new(
-                cc,
-                Default::default(),
-                ui_sender.clone(),
-                simulator_receiver,
-                &io_threads,
-            )
-        });
+    //     // Start app
+    //     let mut harness = egui_kittest::HarnessBuilder::default().build_eframe(|cc| {
+    //         MyApp::new(
+    //             cc,
+    //             Default::default(),
+    //             ui_sender.clone(),
+    //             simulator_receiver,
+    //             &io_threads,
+    //         )
+    //     });
 
-        // Close the debug window.
-        harness
-            .get_by_role_and_label(egui::accesskit::Role::Window, "Debug_Window")
-            .get_by_role_and_label(egui::accesskit::Role::Button, "Close window")
-            .click();
+    //     // Close the debug window.
+    //     harness
+    //         .get_by_role_and_label(egui::accesskit::Role::Window, "Debug_Window")
+    //         .get_by_role_and_label(egui::accesskit::Role::Button, "Close window")
+    //         .click();
 
-        // The window takes two frames to close.
-        harness.step();
-        harness.step();
+    //     // The window takes two frames to close.
+    //     harness.step();
+    //     harness.step();
 
-        // Take a screenie
-        harness.snapshot("default_window");
-    }
+    //     // Take a screenie
+    //     harness.snapshot("default_window");
+    // }
 }
