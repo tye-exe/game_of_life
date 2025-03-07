@@ -63,7 +63,7 @@ impl BoardDisplay {
             .unwrap_or(unsafe { NonZeroUsize::new_unchecked(10) })
     }
 
-    /// Gets the cell at the given position **relative** to this [BoardDisplay].
+    /// Gets the cell at the given position **relative** to this [`BoardDisplay`].
     ///
     /// If the given position is outside the bounds of the display board then [`Cell::Dead`] will be returned.
     pub fn get_cell(&self, position: impl Into<GlobalPosition>) -> Cell {
@@ -74,6 +74,11 @@ impl BoardDisplay {
             .and_then(|sub_array| sub_array.get(position.get_y() as usize))
             .copied()
             .unwrap_or_default()
+    }
+
+    /// Gets the generation of the simulation that this [`BoardDisplay`] is generated from.
+    pub fn get_generation(&self) -> u64 {
+        self.generation
     }
 }
 
@@ -139,5 +144,14 @@ mod board_display_tests {
 
         assert_eq!(board_display.get_cell((1, 1)), Cell::Alive);
         assert_eq!(board_display.get_cell((3, 4)), Cell::Dead);
+    }
+
+    #[test]
+    fn get_generation() {
+        let mut board_display = BoardDisplay::default();
+        assert_eq!(board_display.generation, 0);
+
+        board_display.generation = 20;
+        assert_eq!(board_display.generation, 20);
     }
 }
