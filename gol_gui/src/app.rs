@@ -23,6 +23,9 @@ use std::{
 };
 use threadpool::ThreadPool;
 
+#[cfg(debug_assertions)]
+use debug_data::DebugValues;
+
 /// The egui id for the board where the cells are being displayed.
 const BOARD_ID: &str = "board";
 /// The egui id for the top panel.
@@ -43,15 +46,9 @@ lang! {
 
 /// The struct that contains the data for the gui of my app.
 pub struct MyApp<'a> {
-    /// Whether the debug window is open or not.
+    /// Stores extra information used in debug mode.
     #[cfg(debug_assertions)]
-    debug_menu_open: bool,
-    /// Time since last frame.
-    #[cfg(debug_assertions)]
-    last_frame_time: Duration,
-    /// Whether to stop the board from being updated from the simulator.
-    #[cfg(debug_assertions)]
-    update_board: bool,
+    debug: DebugValues,
 
     /// Stores relevant information for unrecoverable errors.
     error_occurred: Option<ErrorData>,
@@ -199,7 +196,7 @@ impl eframe::App for MyApp<'_> {
                 #[cfg(debug_assertions)]
                 {
                     if ui.button("Debug Menu").clicked() {
-                        self.debug_menu_open = !self.debug_menu_open
+                        self.debug.debug_menu_open = !self.debug.debug_menu_open
                     }
                 }
             })
@@ -258,7 +255,7 @@ impl eframe::App for MyApp<'_> {
                 if let Some(board) = board.take() {
                     // Allow updates to be paused for debug testing.
                     #[cfg(debug_assertions)]
-                    if self.update_board {
+                    if self.debug.update_board {
                         self.display_cache = board;
                     }
 
@@ -346,7 +343,7 @@ impl eframe::App for MyApp<'_> {
         #[cfg(debug_assertions)]
         {
             let end_time = Instant::now();
-            self.last_frame_time = end_time - start_time;
+            self.debug.last_frame_time = end_time - start_time;
         }
     }
 
@@ -369,13 +366,9 @@ impl<'a> MyApp<'a> {
             ui_sender,
             simulator_receiver,
             error_occurred: None,
-            #[cfg(debug_assertions)]
-            debug_menu_open: true,
             x_offset: 0.0,
             y_offset: 0.0,
             display_area: Area::new((-10, -10), (10, 10)),
-            #[cfg(debug_assertions)]
-            last_frame_time: Duration::new(0, 0),
             settings: Settings::default(),
             save: Save::default(),
             load: Default::default(),
@@ -385,7 +378,7 @@ impl<'a> MyApp<'a> {
             edit_state: Default::default(),
             selection: None,
             #[cfg(debug_assertions)]
-            update_board: true,
+            debug: DebugValues::default(),
         };
 
         // Load stored configurations
@@ -435,7 +428,7 @@ impl<'a> MyApp<'a> {
     #[cfg(debug_assertions)]
     fn debug_window(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         egui::Window::new(DEBUG_WINDOW)
-            .open(&mut self.debug_menu_open)
+            .open(&mut self.debug.debug_menu_open)
             .show(ctx, |ui| {
                 ui.heading("Errors");
                 ui.horizontal_top(|ui| {
@@ -496,7 +489,7 @@ impl<'a> MyApp<'a> {
                 ui.separator();
                 ui.heading("Rendering Stats");
 
-                let update_duration = self.last_frame_time.as_secs_f32();
+                let update_duration = self.debug.last_frame_time.as_secs_f32();
                 let updates_per_sec = 1.0 / update_duration;
                 ui.label(format!(
                     "Updates Per Second: {}",
@@ -521,7 +514,7 @@ impl<'a> MyApp<'a> {
                 }
 
                 ui.separator();
-                ui.checkbox(&mut self.update_board, "Update board from simulator?");
+                ui.checkbox(&mut self.debug.update_board, "Update board from simulator?");
             });
     }
 
@@ -811,6 +804,32 @@ pub(crate) fn toast_options() -> egui_toast::ToastOptions {
         .duration_in_seconds(2.0)
         .show_progress(true)
         .show_icon(true)
+}
+
+/// Contains the values used during the application debugging.
+#[cfg(debug_assertions)]
+mod debug_data {
+    use std::time::Duration;
+
+    /// Contains the values used during the application debugging.
+    pub(crate) struct DebugValues {
+        /// Whether the debug window is open or not.
+        pub(crate) debug_menu_open: bool,
+        /// Time since last frame.
+        pub(crate) last_frame_time: Duration,
+        /// Whether to stop the board from being updated from the simulator.
+        pub(crate) update_board: bool,
+    }
+
+    impl Default for DebugValues {
+        fn default() -> Self {
+            Self {
+                debug_menu_open: true,
+                last_frame_time: Duration::new(0, 0),
+                update_board: true,
+            }
+        }
+    }
 }
 
 #[cfg(test)]
