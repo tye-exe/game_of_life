@@ -215,6 +215,7 @@ impl eframe::App for MyApp<'_> {
         let board_rect = board_rect;
 
         self.board_interaction(ctx, &mut to_send, board_rect);
+        self.scroll_board(&mut to_send);
         self.draw_board(ctx, board_rect);
         self.draw_selection(ctx, board_rect);
 
@@ -692,6 +693,44 @@ impl<'a> MyApp<'a> {
                 egui::StrokeKind::Middle,
             );
             painter.add(rect_shape);
+        }
+    }
+
+    fn scroll_board(&mut self, to_send: &mut Vec<UiPacket>) {
+        let mut modified_display = false;
+
+        // While loops are used as display can be dragged further than one cell in one frame.
+        while self.x_offset % self.settings.cell.size > 0.0 {
+            self.display_area.translate_x(-1);
+            self.x_offset -= self.settings.cell.size;
+            modified_display = true;
+        }
+
+        while self.x_offset % self.settings.cell.size < 0.0 {
+            self.display_area.translate_x(1);
+            self.x_offset += self.settings.cell.size;
+            modified_display = true;
+        }
+
+        while self.y_offset % self.settings.cell.size > 0.0 {
+            self.display_area.translate_y(-1);
+            self.y_offset -= self.settings.cell.size;
+            modified_display = true;
+        }
+
+        while self.y_offset % self.settings.cell.size < 0.0 {
+            self.display_area.translate_y(1);
+            self.y_offset += self.settings.cell.size;
+            modified_display = true;
+        }
+
+        if modified_display {
+            let mut new_area = self.display_area;
+
+            new_area.modify_max((0, 1));
+            new_area.modify_min((-1, 0));
+
+            to_send.push(UiPacket::DisplayArea { new_area });
         }
     }
 }

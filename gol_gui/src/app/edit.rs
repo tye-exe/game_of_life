@@ -20,8 +20,6 @@ pub(crate) enum EditState {
     Select,
 }
 
-impl EditState {}
-
 impl Display for EditState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
@@ -45,42 +43,6 @@ pub(crate) fn preview_interaction(
         let drag_delta = interact.drag_delta();
         *x_offset += drag_delta.x;
         *y_offset += drag_delta.y;
-
-        let mut modified_display = false;
-
-        // While loops are used as display can be dragged further than one cell in one frame.
-        while *x_offset % cell_size > 0.0 {
-            display_area.translate_x(-1);
-            *x_offset -= cell_size;
-            modified_display = true;
-        }
-
-        while *x_offset % cell_size < 0.0 {
-            display_area.translate_x(1);
-            *x_offset += cell_size;
-            modified_display = true;
-        }
-
-        while *y_offset % cell_size > 0.0 {
-            display_area.translate_y(-1);
-            *y_offset -= cell_size;
-            modified_display = true;
-        }
-
-        while *y_offset % cell_size < 0.0 {
-            display_area.translate_y(1);
-            *y_offset += cell_size;
-            modified_display = true;
-        }
-
-        if modified_display {
-            let mut new_area = *display_area;
-
-            new_area.modify_max((0, 1));
-            new_area.modify_min((-1, 0));
-
-            to_send.push(UiPacket::DisplayArea { new_area });
-        }
     }
 }
 
