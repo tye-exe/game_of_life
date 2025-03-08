@@ -455,25 +455,33 @@ impl<'a> MyApp<'a> {
 
                 ui.separator();
                 ui.heading("Internal Values");
+
                 ui.label(format!(
-                    "Error Occurred: {}\n\
-                        Display Area: {:?}\n\
-                        X Offset: {}\n\
-                        Y Offset: {}\n\
-                        Cell Alive Colour: {:#?}\n\
-                        Cell Dead Colour: {:#?}\n\
-                        Cell Size: {}",
+                    "Error Occurred: {}",
                     match &self.error_occurred {
                         Some(err) => format!("{:?}", err),
                         None => "No Error".to_owned(),
-                    },
-                    self.display_area,
-                    self.x_offset,
-                    self.y_offset,
-                    self.settings.cell.alive_colour,
-                    self.settings.cell.dead_colour,
-                    self.settings.cell.size
+                    }
                 ));
+
+                ui.horizontal(|ui| {
+                    ui.label(format!("X Offset: {:.2}", self.x_offset));
+                    ui.add(
+                        egui::DragValue::new(&mut self.x_offset)
+                            .range(0..=15)
+                            .speed(0.1),
+                    );
+                });
+
+                ui.horizontal(|ui| {
+                    ui.label(format!("Y Offset: {:.2}", self.y_offset));
+                    ui.add(
+                        egui::DragValue::new(&mut self.y_offset)
+                            .range(0..=15)
+                            .speed(0.1),
+                    );
+                });
+
                 ui.label(format!(
                     "Cursor Position: {}",
                     match ctx.pointer_latest_pos() {
@@ -481,6 +489,7 @@ impl<'a> MyApp<'a> {
                         None => "Offscreen".to_owned(),
                     },
                 ));
+
                 ui.label(format!(
                     "Generation: {}",
                     self.display_cache.get_generation()
