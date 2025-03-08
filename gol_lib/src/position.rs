@@ -5,7 +5,9 @@
 /// The opposites also apply.
 #[derive(Eq, Hash, PartialEq, Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct GlobalPosition {
+    /// The position on the x axis.
     pub(crate) x: i32,
+    /// The position on the y axis.
     pub(crate) y: i32,
 }
 
