@@ -581,10 +581,10 @@ impl<'a> MyApp<'a> {
         });
 
         // Ensure that the size of the display area is the same as the number of cells displayed.
-        self.display_area
-            .modify_x(x_cells - self.display_area.x_difference());
-        self.display_area
-            .modify_y(y_cells - self.display_area.y_difference());
+        self.display_area.modify_max((
+            x_cells - self.display_area.x_difference(),
+            y_cells - self.display_area.y_difference(),
+        ));
 
         // Uses the difference to offset the cells being rendered.
         // This allows the cells to move on the board without the simulator sending new data.
