@@ -1,6 +1,7 @@
 use crate::GlobalPosition;
 
-/// A single wrapper struct around the two opposite corners of rectangle.
+/// Contains the data for the two opposite corners of a rectangle.
+/// One corner will have the minimum x and minimum y values, the other will have the maximum x and maximum y values.
 #[derive(Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize, Hash)]
 #[cfg_attr(any(test, debug_assertions), derive(Debug))]
 pub struct Area {
@@ -19,6 +20,17 @@ impl Default for Area {
 
 impl Area {
     /// Constructs a new [`Area`] covering from the small x & y to the large x & y.
+    /// The positions passed into this method will be sorted into the minimum and maximum corners.
+    ///
+    /// # Examples
+    /// Using i32 tuples to create [`GlobalPosition`]s:
+    /// ```
+    /// # use gol_lib::Area;
+    /// let area = Area::new((1, 4), (10, -6));
+    /// // Notice how they are sorted into the max & min corners.
+    /// assert_eq!(area.get_min(), (1, -6).into());
+    /// assert_eq!(area.get_max(), (10, 4).into());
+    /// ```
     pub fn new(pos1: impl Into<GlobalPosition>, pos2: impl Into<GlobalPosition>) -> Self {
         let pos1 = pos1.into();
         let pos2 = pos2.into();
@@ -55,6 +67,18 @@ impl Area {
     /// A range from the minimum y to the maximum y (inclusive).
     pub fn y_range(&self) -> std::ops::RangeInclusive<i32> {
         self.get_min().get_y()..=self.get_max().get_y()
+    }
+
+    /// Gets size of this area in the x axis.
+    #[doc(alias = "x_size")]
+    pub fn x_difference(&self) -> i32 {
+        self.max.x - self.min.x
+    }
+
+    /// Gets the size of this area in the y axis.
+    #[doc(alias = "y_size")]
+    pub fn y_difference(&self) -> i32 {
+        self.max.y - self.min.y
     }
 
     /// Returns an iterator that iterates over all the x & y positions within this area as [`GlobalPosition`]s.
@@ -104,11 +128,13 @@ impl Area {
         })
     }
 
+    /// Moves the area in the x axis by the given value.
     pub fn translate_x(&mut self, move_by: i32) {
         self.min.x += move_by;
         self.max.x += move_by;
     }
 
+    /// Moves the area in the y axis by the given value.
     pub fn translate_y(&mut self, move_by: i32) {
         self.min.y += move_by;
         self.max.y += move_by;
@@ -126,14 +152,6 @@ impl Area {
     /// If the modified y would be lower than the minimum y, it will instead be set to the minimum y value.
     pub fn modify_y(&mut self, y_change: i32) {
         self.max.y = self.min.y.max(self.max.y + y_change)
-    }
-
-    pub fn x_difference(&self) -> i32 {
-        self.max.x - self.min.x
-    }
-
-    pub fn y_difference(&self) -> i32 {
-        self.max.y - self.min.y
     }
 }
 
