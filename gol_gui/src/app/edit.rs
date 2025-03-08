@@ -74,9 +74,12 @@ pub(crate) fn preview_interaction(
         }
 
         if modified_display {
-            to_send.push(UiPacket::DisplayArea {
-                new_area: *display_area,
-            });
+            let mut new_area = *display_area;
+
+            new_area.modify_max((0, 1));
+            new_area.modify_min((-1, 0));
+
+            to_send.push(UiPacket::DisplayArea { new_area });
         }
     }
 }

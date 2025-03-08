@@ -58,6 +58,9 @@ pub struct MyApp<'a> {
     /// The current display being rendered.
     display_cache: BoardDisplay,
     /// The area of the board to request being displayed.
+    ///
+    /// When sending a request to the simulator, ensure to increase the max x by 1 and the min y by -1.
+    /// This is due to smooth scrolling requiring an extra tile in each axis.
     display_area: Area,
     /// The x offset from the board being displayed.
     x_offset: f32,
@@ -537,34 +540,47 @@ impl<'a> MyApp<'a> {
 
         // Number of cell in x axis
         let x_cells = (board_rect.right() / self.settings.cell.size).ceil() as i32;
-        // Create iterator of x position for cells
-        let x_iter = (0..x_cells).map(|x| {
+        // Create iterator of x position for cells.
+        // An extra cell is generated to compensate for the scroll offset.
+        let x_iter = (0..x_cells + 1).map(|x| {
             let mut x_cell = x as f32;
             x_cell *= self.settings.cell.size;
+            // Offset by the scroll position.
+            x_cell -= self.settings.cell.size - self.x_offset;
             x_cell
         });
 
         // Number of cells in y axis
         let y_cells = (board_rect.bottom() / self.settings.cell.size).floor() as i32;
-        // Create iterator of y position for cells
-        let y_iter = (0..y_cells).map(|y| {
+        // Create iterator of y position for cells.
+        // An extra cell is generated to compensate for the scroll offset.
+        let y_iter = (0..y_cells + 1).map(|y| {
             let mut y_cell = y as f32;
             y_cell *= self.settings.cell.size;
+            // Offset by the scroll position.
+            y_cell -= self.settings.cell.size - self.y_offset;
             y_cell
         });
 
-        // Modify displayed area to follow cells displayed.
+        // Ensure that the size of the display area is the same as the number of cells displayed.
         self.display_area
             .modify_x(x_cells - self.display_area.x_difference());
         self.display_area
             .modify_y(y_cells - self.display_area.y_difference());
+
+        // Uses the difference to offset the cells being rendered.
+        // This allows the cells to move on the board without the simulator sending new data.
+        let x_diff =
+            self.display_area.get_max().get_x() - self.display_cache.get_area().get_max().get_x();
+        let y_diff =
+            self.display_area.get_max().get_y() - self.display_cache.get_area().get_max().get_y();
 
         // Draws the alive cells.
         for (x_index, x_origin) in x_iter.clone().enumerate() {
             for (y_index, y_origin) in y_iter.clone().enumerate() {
                 if let Cell::Alive = self
                     .display_cache
-                    .get_cell((x_index as i32, y_index as i32))
+                    .get_cell((x_index as i32 + x_diff, y_index as i32 + y_diff))
                 {
                     let rect = Rect::from_two_pos(
                         pos2(x_origin, y_origin),
