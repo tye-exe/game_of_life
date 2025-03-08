@@ -413,13 +413,6 @@ impl<'a> MyApp<'a> {
             .unwrap();
 
         my_app
-            .ui_sender
-            .send(UiPacket::DisplayArea {
-                new_area: my_app.display_area,
-            })
-            .unwrap();
-
-        my_app
     }
 
     /// Draws the debug window.
@@ -701,34 +694,29 @@ impl<'a> MyApp<'a> {
     }
 
     fn scroll_board(&mut self, to_send: &mut Vec<UiPacket>) {
-        let mut modified_display = false;
-
         // While loops are used as display can be dragged further than one cell in one frame.
         while self.x_offset % self.settings.cell.size > 0.0 {
             self.display_area.translate_x(-1);
             self.x_offset -= self.settings.cell.size;
-            modified_display = true;
         }
 
         while self.x_offset % self.settings.cell.size < 0.0 {
             self.display_area.translate_x(1);
             self.x_offset += self.settings.cell.size;
-            modified_display = true;
         }
 
         while self.y_offset % self.settings.cell.size > 0.0 {
             self.display_area.translate_y(-1);
             self.y_offset -= self.settings.cell.size;
-            modified_display = true;
         }
 
         while self.y_offset % self.settings.cell.size < 0.0 {
             self.display_area.translate_y(1);
             self.y_offset += self.settings.cell.size;
-            modified_display = true;
         }
 
-        if modified_display {
+        // Check if the displayed data is different to the displayed area.
+        if self.display_area != self.display_cache.get_area() {
             let mut new_area = self.display_area;
 
             new_area.modify_max((0, 1));
