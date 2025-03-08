@@ -110,7 +110,8 @@ impl Default for CellSettings {
         Self {
             alive_colour: Color32::WHITE,
             dead_colour: Color32::BLACK,
-            grid_colour: Color32::GRAY,
+            // Dark blue/purple, more pleasing on the eyes.
+            grid_colour: Color32::from_rgb(47, 43, 77),
             size: 15.0,
         }
     }
