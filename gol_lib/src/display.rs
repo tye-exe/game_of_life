@@ -3,6 +3,8 @@
 
 use std::{num::NonZeroUsize, sync::Arc};
 
+use crate::Area;
+
 use super::{cell::Cell, position::GlobalPosition};
 
 /// Holds the board data for the ui to display.
@@ -14,7 +16,9 @@ use super::{cell::Cell, position::GlobalPosition};
 pub struct BoardDisplay {
     /// The generation of the board to be displayed.
     generation: u64,
-    /// The area of the board to display.
+    /// The area of the board that the display data represents.
+    display_area: Area,
+    /// The cell data for the area of the board to display.
     board: Arc<[Box<[Cell]>]>,
 }
 
@@ -24,7 +28,7 @@ impl BoardDisplay {
     /// # Example
     /// Simple way to create the correct board data type.
     /// ```
-    /// # use gol_lib::{Cell, BoardDisplay};
+    /// # use gol_lib::{Cell, BoardDisplay, Area};
     /// # let generation = 0;
     /// let mut board_build = Vec::new();
     /// for _ in 0..4 {
@@ -37,11 +41,14 @@ impl BoardDisplay {
     ///     board_build.push(array);
     /// }
     ///
-    /// BoardDisplay::new(generation, board_build);
+    /// let area = Area::new((0,0), (0,0));
+    ///
+    /// BoardDisplay::new(generation, area, board_build);
     /// ```
-    pub fn new(generation: u64, board: impl Into<Arc<[Box<[Cell]>]>>) -> Self {
+    pub fn new(generation: u64, display_area: Area, board: impl Into<Arc<[Box<[Cell]>]>>) -> Self {
         Self {
             generation,
+            display_area,
             board: board.into(),
         }
     }
@@ -80,6 +87,11 @@ impl BoardDisplay {
     pub fn get_generation(&self) -> u64 {
         self.generation
     }
+
+    /// Gets the area that this [`BoardDisplay`] represents.
+    pub fn get_area(&self) -> Area {
+        self.display_area
+    }
 }
 
 #[cfg(test)]
@@ -98,13 +110,19 @@ mod board_display_tests {
             board_build.push(array);
         }
 
-        BoardDisplay::new(0, board_build)
+        let area = Area::new((0, 0), (0, 0));
+
+        BoardDisplay::new(0, area, board_build)
     }
 
     #[test]
     fn default_is_correct() {
         let board_build: Vec<Box<[Cell]>> = Vec::new();
-        assert_eq!(BoardDisplay::default(), BoardDisplay::new(0, board_build))
+        let area = Area::new((0, 0), (0, 0));
+        assert_eq!(
+            BoardDisplay::default(),
+            BoardDisplay::new(0, area, board_build)
+        )
     }
 
     #[test]

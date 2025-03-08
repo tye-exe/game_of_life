@@ -10,11 +10,15 @@ use gol_lib::{Area, BoardDisplay, Cell, GlobalPosition, SharedDisplay, Simulator
 
 /// Represents a board that the cells inhabit.
 pub struct Board {
-    board: HashSet<GlobalPosition>,
-    generation: u64,
-
+    /// The display data that is for the UI to render.
     display: SharedDisplay,
+    /// The area of the board that the UI wants to render.
     display_size_buf: Area,
+
+    /// The generation that this simulation is on.
+    generation: u64,
+    /// The board that the simulation will take place on
+    board: HashSet<GlobalPosition>,
 }
 
 impl Simulator for Board {
@@ -155,7 +159,11 @@ impl Simulator for Board {
         }
 
         // Updates the board to display.
-        *display = Some(BoardDisplay::new(self.generation, board_build));
+        *display = Some(BoardDisplay::new(
+            self.generation,
+            self.display_size_buf,
+            board_build,
+        ));
     }
 
     fn new(display: SharedDisplay) -> Self {
@@ -290,6 +298,7 @@ mod tests {
     fn generates_correct_display() {
         let display: SharedDisplay = Default::default();
         let mut board = Board::new(display.clone());
+        let display_area = Area::new((-10, -10), (10, 10));
 
         // Populate board
         let mut cell_iter = generate_cell_iterator();
@@ -300,7 +309,7 @@ mod tests {
         }
 
         // Display init
-        board.set_display_area(Area::new((-10, -10), (10, 10)));
+        board.set_display_area(display_area);
         board.update_display();
 
         let mut mutex_guard = display.lock().unwrap();
@@ -308,7 +317,7 @@ mod tests {
         assert!(take.is_some());
 
         // Generate expected result
-        let var_name = {
+        let expected_board = {
             use Cell::{Alive, Dead};
             let mut vec = Vec::new();
 
@@ -328,7 +337,7 @@ mod tests {
             vec
         };
 
-        let board_display = BoardDisplay::new(0, var_name);
+        let board_display = BoardDisplay::new(0, display_area, expected_board);
         assert_eq!(board_display, take.unwrap())
     }
 
