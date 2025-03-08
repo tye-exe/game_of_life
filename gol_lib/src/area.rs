@@ -143,6 +143,7 @@ impl Area {
     /// Modifies the area via increasing/decreasing the maximum x position by the given amount.
     ///
     /// If the modified x would be lower than the minimum x, it will instead be set to the minimum x value.
+    #[deprecated = "Unintuative to use."]
     pub fn modify_x(&mut self, x_change: i32) {
         self.max.x = self.min.x.max(self.max.x + x_change);
     }
@@ -150,8 +151,31 @@ impl Area {
     /// Modifies the area via increasing/decreasing the maximum y position by the given amount.
     ///
     /// If the modified y would be lower than the minimum y, it will instead be set to the minimum y value.
+    #[deprecated = "Unintuative to use."]
     pub fn modify_y(&mut self, y_change: i32) {
         self.max.y = self.min.y.max(self.max.y + y_change)
+    }
+
+    /// Modifies the minimum x & y by the given values, with the first representing x and the latter y.
+    /// If x or y value would exceed the maximum value after the change, it will be clamped to the value of maximums values.
+    pub fn modify_min(&mut self, min_change: (i32, i32)) {
+        self.min.x += min_change.0;
+        self.min.y += min_change.1;
+
+        // Ensure that the min cannot be larger than the max.
+        self.min.x = self.min.x.min(self.max.x);
+        self.min.y = self.min.y.min(self.max.y);
+    }
+
+    /// Modifies the maximum x & y by the given values, with the first representing x and the latter y.
+    /// If x or y would decrease bellow the minimum value after the change, it will be clamped to the value of the minimum values.
+    pub fn modify_max(&mut self, max_change: (i32, i32)) {
+        self.max.x += max_change.0;
+        self.max.y += max_change.1;
+
+        // Ensure that max cannot be smaller than min.
+        self.max.x = self.max.x.max(self.min.x);
+        self.max.y = self.max.y.max(self.min.y);
     }
 }
 
@@ -244,5 +268,55 @@ pub(crate) mod area_tests {
 
         area.modify_y(10);
         assert_eq!(area, Area::new((1, 1), (14, 14)));
+    }
+
+    #[test]
+    /// Modifying the minimum behaves as expected.
+    fn modify_min() {
+        let mut area = Area::new((0, 0), (10, 10));
+
+        // Positive modification
+        area.modify_min((1, 1));
+        assert_eq!(area, Area::new((1, 1), (10, 10)));
+
+        // Negative modification
+        area.modify_min((-2, -2));
+        assert_eq!(area, Area::new((-1, -1), (10, 10)));
+    }
+
+    #[test]
+    /// Minimum values cannot be changed to larger than the maximum values.
+    fn modify_min_excessive() {
+        let mut area = Area::new((0, 0), (10, 10));
+        area.modify_min((19, 19));
+        assert_eq!(
+            area,
+            Area::new((10, 10), (10, 10)),
+            "The minimum value cannot be larger than the maximum value."
+        );
+    }
+
+    #[test]
+    /// Modifying the maximum behaves as expected.
+    fn modify_max() {
+        let mut area = Area::new((0, 0), (10, 10));
+
+        area.modify_max((1, 1));
+        assert_eq!(area, Area::new((0, 0), (11, 11)));
+
+        area.modify_max((-2, -2));
+        assert_eq!(area, Area::new((0, 0), (9, 9)));
+    }
+
+    #[test]
+    /// Maximum values cannot be changed to larger than the minimum values.
+    fn modify_max_excessive() {
+        let mut area = Area::new((0, 0), (10, 10));
+        area.modify_max((-19, -19));
+        assert_eq!(
+            area,
+            Area::new((0, 0), (0, 0)),
+            "The maximum value cannot be smaller than the minimum value."
+        );
     }
 }
