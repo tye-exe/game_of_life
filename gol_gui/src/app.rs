@@ -49,6 +49,9 @@ pub struct MyApp<'a> {
     /// Time since last frame.
     #[cfg(debug_assertions)]
     last_frame_time: Duration,
+    /// Whether to stop the board from being updated from the simulator.
+    #[cfg(debug_assertions)]
+    update_board: bool,
 
     /// Stores relevant information for unrecoverable errors.
     error_occurred: Option<ErrorData>,
@@ -252,7 +255,17 @@ impl eframe::App for MyApp<'_> {
         match self.display_update.try_lock() {
             Ok(mut board) => {
                 if let Some(board) = board.take() {
-                    self.display_cache = board;
+                    // Allow updates to be paused for debug testing.
+                    #[cfg(debug_assertions)]
+                    if self.update_board {
+                        self.display_cache = board;
+                    }
+
+                    // Always update when not in debug build
+                    #[cfg(not(debug_assertions))]
+                    {
+                        self.display_cache = board;
+                    }
                 }
             }
             Err(std::sync::TryLockError::WouldBlock) => {
@@ -370,6 +383,8 @@ impl<'a> MyApp<'a> {
             history: Default::default(),
             edit_state: Default::default(),
             selection: None,
+            #[cfg(debug_assertions)]
+            update_board: true,
         };
 
         // Load stored configurations
@@ -503,6 +518,9 @@ impl<'a> MyApp<'a> {
                             .text("Testing toasts!"),
                     );
                 }
+
+                ui.separator();
+                ui.checkbox(&mut self.update_board, "Update board from simulator?");
             });
     }
 
