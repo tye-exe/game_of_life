@@ -9,7 +9,7 @@ use crate::{
     user_actions::{Action, History},
 };
 use edit::{EditState, draw_interaction, preview_interaction, select_interaction};
-use egui::{Id, Painter, Pos2, Rect, pos2};
+use egui::{CornerRadius, Id, Painter, Pos2, Rect, epaint::RectShape, pos2};
 use egui_keybind::Bind;
 use egui_toast::{Toast, Toasts};
 use gol_lib::{
@@ -528,6 +528,13 @@ impl<'a> MyApp<'a> {
             board_rect,
         );
 
+        // Draw the background as the cell dead colour by default
+        layer_painter.add(RectShape::filled(
+            board_rect,
+            CornerRadius::ZERO,
+            self.settings.cell.dead_colour,
+        ));
+
         // Number of cell in x axis
         let x_cells = (board_rect.right() / self.settings.cell.size).ceil() as i32;
         // Create iterator of x position for cells
@@ -552,35 +559,50 @@ impl<'a> MyApp<'a> {
         self.display_area
             .modify_y(y_cells - self.display_area.y_difference());
 
-        // Draw the display board.
-        for (x_index, x_origin) in x_iter.enumerate() {
+        // Draws the alive cells.
+        for (x_index, x_origin) in x_iter.clone().enumerate() {
             for (y_index, y_origin) in y_iter.clone().enumerate() {
-                let rect = Rect::from_two_pos(
-                    pos2(x_origin, y_origin),
-                    pos2(
-                        x_origin + self.settings.cell.size,
-                        y_origin + self.settings.cell.size,
-                    ),
-                );
+                if let Cell::Alive = self
+                    .display_cache
+                    .get_cell((x_index as i32, y_index as i32))
+                {
+                    let rect = Rect::from_two_pos(
+                        pos2(x_origin, y_origin),
+                        pos2(
+                            x_origin + self.settings.cell.size,
+                            y_origin + self.settings.cell.size,
+                        ),
+                    );
 
-                let rect = egui::epaint::RectShape::new(
-                    rect,
-                    egui::CornerRadius::ZERO,
-                    {
-                        match self
-                            .display_cache
-                            .get_cell((x_index as i32, y_index as i32))
-                        {
-                            Cell::Alive => self.settings.cell.alive_colour,
-                            Cell::Dead => self.settings.cell.dead_colour,
-                        }
-                    },
-                    egui::Stroke::new(1.0, self.settings.cell.grid_colour),
-                    egui::StrokeKind::Middle,
-                );
+                    let rect = RectShape::filled(
+                        rect,
+                        CornerRadius::ZERO,
+                        self.settings.cell.alive_colour,
+                    );
 
-                layer_painter.add(rect);
+                    layer_painter.add(rect);
+                };
             }
+        }
+
+        // Draw the lines last so that they draw over the cells.
+
+        // Draws the vertical lines.
+        for x_offset in x_iter {
+            layer_painter.vline(
+                x_offset,
+                board_rect.y_range(),
+                egui::Stroke::new(1.0, self.settings.cell.grid_colour),
+            );
+        }
+
+        // Draws the horizontal lines.
+        for y_offset in y_iter {
+            layer_painter.hline(
+                board_rect.x_range(),
+                y_offset,
+                egui::Stroke::new(1.0, self.settings.cell.grid_colour),
+            );
         }
     }
 
@@ -629,7 +651,7 @@ impl<'a> MyApp<'a> {
             let rect = egui::Rect::from_two_pos(*drag_start, *drag_end);
 
             let painter = egui::Painter::new(ctx.clone(), layer_id, board_rect);
-            let rect_shape = egui::epaint::RectShape::stroke(
+            let rect_shape = RectShape::stroke(
                 rect,
                 1.0,
                 egui::Stroke::new(5.0, ctx.theme().default_visuals().hyperlink_color),
