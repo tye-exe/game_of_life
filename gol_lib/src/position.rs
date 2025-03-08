@@ -26,19 +26,21 @@ impl GlobalPosition {
     }
 }
 
-impl std::ops::Sub<(i32, i32)> for GlobalPosition {
+impl<T: Into<GlobalPosition>> std::ops::Sub<T> for GlobalPosition {
     type Output = Self;
 
-    fn sub(self, rhs: (i32, i32)) -> Self::Output {
-        GlobalPosition::new(self.x - rhs.0, self.y - rhs.1)
+    fn sub(self, other_position: T) -> Self::Output {
+        let other_position: GlobalPosition = other_position.into();
+        GlobalPosition::new(self.x - other_position.x, self.y - other_position.y)
     }
 }
 
-impl std::ops::Add<(i32, i32)> for GlobalPosition {
+impl<T: Into<GlobalPosition>> std::ops::Add<T> for GlobalPosition {
     type Output = Self;
 
-    fn add(self, rhs: (i32, i32)) -> Self::Output {
-        GlobalPosition::new(self.x + rhs.0, self.y + rhs.1)
+    fn add(self, other_position: T) -> Self::Output {
+        let other_position: GlobalPosition = other_position.into();
+        GlobalPosition::new(self.x + other_position.x, self.y + other_position.y)
     }
 }
 
