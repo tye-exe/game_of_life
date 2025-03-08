@@ -6,9 +6,9 @@ use crate::GlobalPosition;
 #[cfg_attr(any(test, debug_assertions), derive(Debug))]
 pub struct Area {
     /// The min x & the min y position.
-    pub(crate) min: GlobalPosition,
+    min: GlobalPosition,
     /// The max x & the max y position.
-    pub(crate) max: GlobalPosition,
+    max: GlobalPosition,
 }
 
 impl Default for Area {
