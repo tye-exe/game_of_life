@@ -468,7 +468,8 @@ impl<'a> MyApp<'a> {
                     ui.label(format!("X Offset: {:.2}", self.x_offset));
                     ui.add(
                         egui::DragValue::new(&mut self.x_offset)
-                            .range(0..=15)
+                            // Will cap the scroll offset if the range is not dynamic
+                            .range(0..=self.settings.cell.size as i32)
                             .speed(0.1),
                     );
                 });
@@ -477,7 +478,8 @@ impl<'a> MyApp<'a> {
                     ui.label(format!("Y Offset: {:.2}", self.y_offset));
                     ui.add(
                         egui::DragValue::new(&mut self.y_offset)
-                            .range(0..=15)
+                            // Will cap the scroll offset if the range is not dynamic
+                            .range(0..=self.settings.cell.size as i32)
                             .speed(0.1),
                     );
                 });
