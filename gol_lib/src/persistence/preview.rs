@@ -2,7 +2,7 @@ use std::{path::Path, time::Duration};
 
 use crate::Area;
 
-use super::{ParseError, generate_filename, load};
+use super::{ParseError, Save, load};
 
 /// Finds and parses [`SavePreview`]s from the given directory.
 pub fn load_preview<'a>(
@@ -71,8 +71,8 @@ impl SavePreview {
 
     /// The filename of the save file (including the extension).
     pub fn get_filename(&self) -> String {
-        generate_filename(
-            &self.board_area,
+        Save::generate_filename(
+            self.board_area,
             &self.name,
             &self.description,
             &self.tags,
@@ -85,7 +85,7 @@ impl SavePreview {
 mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use crate::persistence::{CURRENT_SAVE_VERSION, load::ParseErrorKind, save::SaveBuilder};
+    use crate::persistence::{CURRENT_SAVE_VERSION, SaveBuilder, load::ParseErrorKind};
 
     use super::*;
 
@@ -125,7 +125,7 @@ mod tests {
         let save_tags = Box::new(["test".to_owned().into_boxed_str()]);
         let save_time = SystemTime::now();
 
-        let path = SaveBuilder::new(Default::default())
+        let _ = SaveBuilder::new_save(Default::default())
             .name(save_name)
             .desciprtion(save_description)
             .time(save_time)
@@ -171,7 +171,7 @@ mod tests {
         std::fs::create_dir(&path).expect("Can create subdir");
 
         // Write valid file
-        let path = SaveBuilder::new(Default::default())
+        let _ = SaveBuilder::new_save(Default::default())
             .name(save_name)
             .desciprtion(save_description)
             .time(save_time)
@@ -237,7 +237,7 @@ mod tests {
         let save_tags = Box::new(["test".to_owned().into_boxed_str()]);
 
         // Creates save file.
-        let path = SaveBuilder::new(Default::default())
+        let path = SaveBuilder::new_save(Default::default())
             .name(save_name)
             .desciprtion(save_description)
             .time(save_time)
