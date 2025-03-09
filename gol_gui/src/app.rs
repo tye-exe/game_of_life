@@ -8,7 +8,7 @@ use crate::{
     settings::Settings,
     user_actions::{Action, History},
 };
-use edit::{EditState, draw_interaction, preview_interaction, select_interaction};
+use edit::{EditState, Selection, draw_interaction, preview_interaction, select_interaction};
 use egui::{CornerRadius, Id, Painter, Pos2, Rect, epaint::RectShape, pos2};
 use egui_keybind::Bind;
 use egui_toast::{Toast, Toasts};
@@ -90,7 +90,7 @@ pub struct MyApp<'a> {
     /// The current edit mode the user is in
     edit_state: EditState,
     /// The area the user has selected
-    selection: Option<(Pos2, Pos2)>,
+    selection: Option<Selection>,
 }
 
 impl eframe::App for MyApp<'_> {
@@ -673,14 +673,37 @@ impl<'a> MyApp<'a> {
                 to_send,
                 interact,
             ),
-            EditState::Select => select_interaction(ctx, interact, &mut self.selection),
+            EditState::Select => {
+                // Create a new selection when a new drag is started.
+                if let (true, Some(pointer_position)) =
+                    (interact.drag_started(), ctx.pointer_interact_pos())
+                {
+                    self.selection = Some(Selection::new(
+                        pointer_position,
+                        pointer_position,
+                        self.display_area.get_min(),
+                    ));
+                }
+
+                // Handle selection interaction
+                if let Some(ref mut selection) = self.selection {
+                    select_interaction(ctx, interact, selection);
+                }
+            }
         }
     }
 
+    /// Draws the current selection ontop of the board.
     fn draw_selection(&mut self, ctx: &egui::Context, board_rect: Rect) {
-        if let Some((ref mut drag_start, ref mut drag_end)) = self.selection {
+        if let Some(ref mut selection) = self.selection {
+            // Move the selection with the board scroll
+            selection.update_offset(self.display_area.get_min());
+
+            // Draw the selection
             let layer_id = egui::LayerId::new(egui::Order::Background, SELECTION_LAYER.into());
-            let rect = egui::Rect::from_two_pos(*drag_start, *drag_end);
+            let (pos1, pos2) =
+                selection.get_draw_positions(self.settings.cell.size, self.x_offset, self.y_offset);
+            let rect = egui::Rect::from_two_pos(pos1, pos2);
 
             let painter = egui::Painter::new(ctx.clone(), layer_id, board_rect);
             let rect_shape = RectShape::stroke(
