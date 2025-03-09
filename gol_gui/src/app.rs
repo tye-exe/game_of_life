@@ -676,18 +676,20 @@ impl<'a> MyApp<'a> {
             EditState::Select => {
                 // Create a new selection when a new drag is started.
                 if let (true, Some(pointer_position)) =
-                    (interact.drag_started(), ctx.pointer_interact_pos())
+                    (interact.drag_started(), self.get_interacted_position(ctx))
                 {
-                    self.selection = Some(Selection::new(
-                        pointer_position,
-                        pointer_position,
-                        self.display_area.get_min(),
-                    ));
+                    self.selection = Some(Selection::new(pointer_position));
                 }
 
                 // Handle selection interaction
                 if let Some(ref mut selection) = self.selection {
-                    select_interaction(ctx, interact, selection);
+                    select_interaction(
+                        ctx,
+                        interact,
+                        selection,
+                        self.settings.cell.size,
+                        self.display_area.get_min(),
+                    );
                 }
             }
         }
@@ -696,15 +698,17 @@ impl<'a> MyApp<'a> {
     /// Draws the current selection ontop of the board.
     fn draw_selection(&mut self, ctx: &egui::Context, board_rect: Rect) {
         if let Some(ref mut selection) = self.selection {
-            // Move the selection with the board scroll
-            selection.update_offset(self.display_area.get_min());
-
-            // Draw the selection
+            // Setup
             let layer_id = egui::LayerId::new(egui::Order::Background, SELECTION_LAYER.into());
-            let (pos1, pos2) =
-                selection.get_draw_positions(self.settings.cell.size, self.x_offset, self.y_offset);
+            let (pos1, pos2) = selection.get_draw_positions(
+                self.display_area.get_min(),
+                self.settings.cell.size,
+                self.x_offset,
+                self.y_offset,
+            );
             let rect = egui::Rect::from_two_pos(pos1, pos2);
 
+            // Draw
             let painter = egui::Painter::new(ctx.clone(), layer_id, board_rect);
             let rect_shape = RectShape::stroke(
                 rect,
@@ -747,6 +751,23 @@ impl<'a> MyApp<'a> {
 
             to_send.push(UiPacket::DisplayArea { new_area });
         }
+    }
+
+    fn get_interacted_position(&self, ctx: &egui::Context) -> Option<GlobalPosition> {
+        let cell_size = self.settings.cell.size;
+        let display_area = self.display_area;
+        let position = ctx.pointer_interact_pos()?;
+
+        // Position of cell
+        let cell_x = (position.x / cell_size).trunc() as i32;
+        let cell_y = (position.y / cell_size).trunc() as i32;
+
+        // Position of displayed board
+        let origin_x = display_area.get_min().get_x();
+        let origin_y = display_area.get_min().get_y();
+
+        let position = GlobalPosition::new(cell_x + origin_x, cell_y + origin_y);
+        Some(position)
     }
 }
 

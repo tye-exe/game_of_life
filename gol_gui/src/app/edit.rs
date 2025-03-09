@@ -81,64 +81,81 @@ pub(crate) fn select_interaction(
     ctx: &egui::Context,
     interact: egui::Response,
     selection: &mut Selection,
+    cell_size: f32,
+    origin_min: GlobalPosition,
 ) {
-    // If a new drag is started then reset the origin
-    if let (true, Some(pointer_position)) = (interact.drag_started(), ctx.pointer_interact_pos()) {
-        selection.drag_start = pointer_position;
-    }
-
     // If the selection is being dragged then expand the selection
-    if let (true, Some(pointer_position)) = (interact.dragged(), ctx.pointer_interact_pos()) {
-        selection.drag_end = pointer_position;
+    if let (true, Some(position)) = (interact.dragged(), ctx.pointer_interact_pos()) {
+        let cell_x = (position.x / cell_size).trunc() as i32;
+        let cell_y = (position.y / cell_size).trunc() as i32;
+
+        let origin_x = origin_min.get_x();
+        let origin_y = origin_min.get_y();
+
+        let position = GlobalPosition::new(cell_x + origin_x, cell_y + origin_y);
+        selection.drag_end = position;
     }
 }
 
 /// Holds the information regarding the area of the board that was selected by the user.
 pub(crate) struct Selection {
-    drag_start: Pos2,
-    drag_end: Pos2,
-    origin: GlobalPosition,
-    offset: GlobalPosition,
+    drag_start: GlobalPosition,
+    drag_end: GlobalPosition,
 }
 
 impl Selection {
-    /// Creates a new selection with no offset from the current board position.
-    pub(crate) fn new(drag_start: Pos2, drag_end: Pos2, origin: GlobalPosition) -> Self {
+    /// Creates a new selection starting at the given global position.
+    pub(crate) fn new(pos: GlobalPosition) -> Self {
         Self {
-            drag_start,
-            drag_end,
-            origin,
-            offset: (0, 0).into(),
+            drag_start: pos,
+            drag_end: pos,
         }
     }
 
-    /// Updates the current offset of the selection, if it is different from the current offset.
-    pub(crate) fn update_offset(&mut self, current_min: GlobalPosition) {
-        if current_min != self.origin + self.offset {
-            self.offset = self.origin - current_min;
-        }
-    }
-
-    /// Calculates the coordinates that the selection should be drawn between.
+    /// Gets the positions that this selection should be drawn between.
     /// These positions **are not** sorted into minimum and maximum.
     pub(crate) fn get_draw_positions(
         &self,
+        origin_min: GlobalPosition,
         cell_size: f32,
         x_board_offset: f32,
         y_board_offset: f32,
     ) -> (Pos2, Pos2) {
-        let mut pos1 = self.drag_start;
-        let mut pos2 = self.drag_end;
+        (
+            Self::from_pos(
+                self.drag_start,
+                origin_min,
+                x_board_offset,
+                y_board_offset,
+                cell_size,
+            ),
+            Self::from_pos(
+                self.drag_end,
+                origin_min,
+                x_board_offset,
+                y_board_offset,
+                cell_size,
+            ),
+        )
+    }
 
-        // Apply offset based upon cell size & scroll position
-        let x_offset = (self.offset.get_x() as f32 * cell_size) + x_board_offset;
-        let y_offset = (self.offset.get_y() as f32 * cell_size) + y_board_offset;
+    /// Converts a global position into a egui position.
+    fn from_pos(
+        position: GlobalPosition,
+        origin_min: GlobalPosition,
+        x_offset: f32,
+        y_offset: f32,
+        cell_size: f32,
+    ) -> Pos2 {
+        let origin_x = origin_min.get_x();
+        let origin_y = origin_min.get_y();
 
-        pos1.x += x_offset;
-        pos2.x += x_offset;
-        pos1.y += y_offset;
-        pos2.y += y_offset;
+        let x_diff = position.get_x() - origin_x;
+        let y_diff = position.get_y() - origin_y;
 
-        (pos1, pos2)
+        let x_cell_number = x_diff as f32 * cell_size;
+        let y_cell_number = y_diff as f32 * cell_size;
+
+        (x_cell_number + x_offset, y_cell_number + y_offset).into()
     }
 }
