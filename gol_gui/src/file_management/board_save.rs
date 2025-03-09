@@ -4,7 +4,7 @@ use crate::settings::Settings;
 use egui_toast::Toast;
 use egui_toast::Toasts;
 use gol_lib::communication::UiPacket;
-use gol_lib::persistence::save::BoardSaveError;
+use gol_lib::persistence::save::SaveError;
 use oneshot::TryRecvError;
 use std::path::Path;
 use std::result::Result;
@@ -32,7 +32,7 @@ pub enum SaveStatus {
     Request,
     /// Wait for response.
     Waiting {
-        response_receiver: oneshot::Receiver<Result<Box<Path>, BoardSaveError>>,
+        response_receiver: oneshot::Receiver<Result<Box<Path>, SaveError>>,
     },
 }
 
@@ -73,7 +73,7 @@ impl Save {
     /// Changes the internal state from [SaveStatus::Request] to [SaveStatus::Waiting].
     pub fn set_waiting(
         &mut self,
-        response_receiver: oneshot::Receiver<Result<Box<Path>, BoardSaveError>>,
+        response_receiver: oneshot::Receiver<Result<Box<Path>, SaveError>>,
     ) {
         if self.save_status.kind() != SaveStatusKind::Request {
             return;

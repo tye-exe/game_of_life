@@ -324,7 +324,7 @@ impl eframe::App for MyApp<'_> {
 
                         let _ = tx
                             .send(
-                                SaveBuilder::new(simulation_save)
+                                SaveBuilder::new_save(simulation_save)
                                     .name(name)
                                     .desciprtion(description)
                                     .tags(tags)
