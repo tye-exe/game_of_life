@@ -115,6 +115,7 @@ mod board_display_tests {
         BoardDisplay::new(0, area, board_build)
     }
 
+    /// The default value is as expected.
     #[test]
     fn default_is_correct() {
         let board_build: Vec<Box<[Cell]>> = Vec::new();
@@ -125,12 +126,14 @@ mod board_display_tests {
         )
     }
 
+    /// When the internal board is 0 sized a default x of 10 will be returned.
     #[test]
     fn default_x() {
         let get_x = BoardDisplay::default().get_x().get();
         assert_eq!(get_x, 10);
     }
 
+    /// When the internal board is 0 sized a default y of 10 will be returned.
     #[test]
     fn default_y() {
         let get_y = BoardDisplay::default().get_y().get();
@@ -149,12 +152,14 @@ mod board_display_tests {
         assert_eq!(generate_board.get_y().get(), 6);
     }
 
+    /// An out of bounds cell must return as dead.
     #[test]
     fn dead_out_of_bounds() {
         let cell = BoardDisplay::default().get_cell((2, 2));
         assert_eq!(cell, Cell::Dead)
     }
 
+    /// Get cell must return the expected cell values.
     #[test]
     fn get_cell() {
         // Populate vector with dummy data

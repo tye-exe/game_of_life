@@ -89,8 +89,8 @@ mod tests {
 
     use super::*;
 
-    #[test]
     /// An empty dir must return an empty slice.
+    #[test]
     fn empty_dir() {
         let temp_dir = tempfile::tempdir().expect("Able to create temp dir");
 
@@ -98,8 +98,8 @@ mod tests {
         assert!(parse_saves.unwrap().is_empty());
     }
 
-    #[test]
     /// An invalid save should be parsed as an error.
+    #[test]
     fn invalid_save() {
         let temp_dir = tempfile::tempdir().expect("Able to create temp dir");
 
@@ -116,8 +116,8 @@ mod tests {
         assert_eq!(save_error.kind(), ParseErrorKind::InvalidData)
     }
 
-    #[test]
     /// A valid save should parse correctly
+    #[test]
     fn valid_save() {
         let temp_dir = tempfile::tempdir().expect("Able to create temp dir");
         let save_name = "name";
@@ -152,8 +152,8 @@ mod tests {
         );
     }
 
-    #[test]
     /// Tests parsing both a valid save file and an invalid save file.
+    #[test]
     fn parse_mix() {
         let temp_dir = tempfile::tempdir().expect("Able to create temp dir");
         let save_name = "name";
@@ -208,8 +208,8 @@ mod tests {
         );
     }
 
-    #[test]
     /// A file with invalid data must return the file path of the invalid file.
+    #[test]
     fn invalid_returns_path() {
         let temp_dir = tempfile::tempdir().expect("Able to create temp dir");
 
@@ -227,8 +227,8 @@ mod tests {
         assert_eq!(save_error.kind(), ParseErrorKind::InvalidData)
     }
 
-    #[test]
     /// The filename returned by the preview is the correct filename.
+    #[test]
     fn get_save_path() {
         let temp_dir = tempfile::tempdir().expect("Able to create temp dir");
         let save_name = "name";

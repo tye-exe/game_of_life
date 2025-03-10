@@ -214,7 +214,7 @@ pub(crate) mod area_tests {
     }
 
     #[test]
-    /// The smallestet area (zero difference between min & max) still represents one tile.
+    /// The smallest area (zero difference between min & max) still represents one tile.
     fn area_cannot_be_zero_sized() {
         // Test positive area.
         let positive_area = Area::new((0, 0), (0, 0));

@@ -195,8 +195,8 @@ impl SaveBuilder<Save> {
 mod tests {
     use super::*;
 
-    #[test]
     /// The generated save name will be correct.
+    #[test]
     fn name_generates_correctly() {
         let temp_dir = tempfile::tempdir().expect("Able to create a temp dir");
         let save_name = "save";
@@ -231,8 +231,8 @@ mod tests {
             .expect("Can save file");
     }
 
-    #[test]
     /// The test name generation matches the actual name generation.
+    #[test]
     fn save_board_name() {
         let temp_dir = tempfile::tempdir().expect("Able to create a temp dir");
         let save_name = "save";
@@ -253,6 +253,7 @@ mod tests {
         assert_eq!(save_board, save_path.into_boxed_path());
     }
 
+    /// The save must fail if a file with the same filename already exists.
     #[test]
     fn save_board_file_exists() {
         let temp_dir = tempfile::tempdir().expect("Able to create a temp dir");
@@ -314,7 +315,7 @@ mod tests {
 
     /// Attempting to save a file at a path with multiple non existent parents will created all the parent dirs.
     #[test]
-    fn no_existent_paths() {
+    fn non_existent_paths() {
         let temp_dir = tempfile::tempdir().expect("Able to create a temp dir");
 
         let mut path_buf = temp_dir.path().to_path_buf();
@@ -436,7 +437,7 @@ mod tests {
             .expect("Should be able to save file.");
     }
 
-    /// Tests that blueprint filename generates correctly.
+    /// Tests that a blueprint filename generates correctly.
     #[test]
     fn blueprint_filename() {
         let temp_dir = tempfile::tempdir().expect("Able to create a temp dir");

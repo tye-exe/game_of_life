@@ -275,7 +275,7 @@ mod tests {
         assert!(!history.can_undo(), "There is no more actions to undo");
     }
 
-    /// Can redo must only be true when there are arctions to redo.
+    /// Can redo must only be true when there are actions to redo.
     #[test]
     fn can_redo() {
         let mut history = fill_buffer();
