@@ -48,24 +48,33 @@ pub(crate) fn preview_interaction(
 
 pub(crate) fn draw_interaction(
     cell_size: f32,
-    display_area: &mut Area,
-    display_cache: &mut BoardDisplay,
+    display_area: Area,
+    display_cache: &BoardDisplay,
+    x_offset: f32,
+    y_offset: f32,
     history: &mut History,
     to_send: &mut Vec<UiPacket>,
     interact: egui::Response,
 ) {
     // Toggles the state of a cell when it is clicked.
     if let (true, Some(position)) = (interact.clicked(), interact.interact_pointer_pos()) {
+        let x = position.x - x_offset;
+        let y = position.y - y_offset;
+
         // Position of cell
-        let cell_x = (position.x / cell_size).trunc() as i32;
-        let cell_y = (position.y / cell_size).trunc() as i32;
+        let local_x = (x / cell_size).trunc() as i32;
+        let local_y = (y / cell_size).trunc() as i32;
 
         // Position of displayed board
-        let origin_x = display_area.get_min().get_x();
-        let origin_y = display_area.get_min().get_y();
+        let offset_x = display_area.get_min().get_x();
+        let offset_y = display_area.get_min().get_y();
 
-        let position = GlobalPosition::new(cell_x + origin_x, cell_y + origin_y);
-        let cell_state = display_cache.get_cell((cell_x, cell_y)).invert();
+        let position = GlobalPosition::new(local_x + offset_x, local_y + offset_y);
+
+        let view_offset = display_area.get_min() - display_cache.get_area().get_min();
+        let cell_state = display_cache
+            .get_cell(GlobalPosition::new(local_x, local_y) + view_offset)
+            .invert();
 
         history.add_action(Action::set(position, cell_state));
 

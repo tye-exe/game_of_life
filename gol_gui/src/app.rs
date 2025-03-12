@@ -478,7 +478,13 @@ impl<'a> MyApp<'a> {
                 });
 
                 ui.label(format!(
-                    "Cursor Position: {}",
+                    "Generation: {}",
+                    self.display_cache.get_generation()
+                ));
+
+                ui.heading("Cursor Positions:");
+                ui.label(format!(
+                    "Egui Position: {}",
                     match ctx.pointer_latest_pos() {
                         Some(pos) => pos.to_string(),
                         None => "Offscreen".to_owned(),
@@ -486,8 +492,20 @@ impl<'a> MyApp<'a> {
                 ));
 
                 ui.label(format!(
-                    "Generation: {}",
-                    self.display_cache.get_generation()
+                    "Local Board Position: {}",
+                    match ctx.pointer_latest_pos() {
+                        Some(position) => {
+                            let x = position.x - self.x_offset;
+                            let y = position.y - self.y_offset;
+
+                            // Position of cell
+                            let local_x = (x / self.settings.cell.size).trunc() as i32;
+                            let local_y = (y / self.settings.cell.size).trunc() as i32;
+
+                            format!("{:#?}", GlobalPosition::new(local_x, local_y))
+                        }
+                        None => "Offscreen".to_owned(),
+                    }
                 ));
 
                 ui.separator();
@@ -656,7 +674,7 @@ impl<'a> MyApp<'a> {
             })
             .inner;
 
-        match &mut self.edit_state {
+        match self.edit_state {
             EditState::Preview => preview_interaction(
                 &mut self.x_offset,
                 &mut self.y_offset,
@@ -667,8 +685,10 @@ impl<'a> MyApp<'a> {
             ),
             EditState::Draw => draw_interaction(
                 self.settings.cell.size,
-                &mut self.display_area,
-                &mut self.display_cache,
+                self.display_area,
+                &self.display_cache,
+                self.x_offset,
+                self.y_offset,
                 &mut self.history,
                 to_send,
                 interact,
@@ -676,7 +696,7 @@ impl<'a> MyApp<'a> {
             EditState::Select => {
                 // Create a new selection when a new drag is started.
                 if let (true, Some(pointer_position)) =
-                    (interact.drag_started(), self.get_interacted_position(ctx))
+                    (interact.drag_started(), self.global_position(ctx))
                 {
                     self.selection = Some(Selection::new(pointer_position));
                 }
@@ -753,21 +773,40 @@ impl<'a> MyApp<'a> {
         }
     }
 
-    fn get_interacted_position(&self, ctx: &egui::Context) -> Option<GlobalPosition> {
+    /// Gets the global position on the board that the current pointer interaction is occurring on.
+    fn global_position(&self, ctx: &egui::Context) -> Option<GlobalPosition> {
         let cell_size = self.settings.cell.size;
         let display_area = self.display_area;
         let position = ctx.pointer_interact_pos()?;
 
         // Position of cell
-        let cell_x = (position.x / cell_size).trunc() as i32;
-        let cell_y = (position.y / cell_size).trunc() as i32;
+        let x = position.x + self.x_offset;
+        let y = position.y + self.y_offset;
+
+        let local_x = (x / cell_size).trunc() as i32;
+        let local_y = (y / cell_size).trunc() as i32;
 
         // Position of displayed board
-        let origin_x = display_area.get_min().get_x();
-        let origin_y = display_area.get_min().get_y();
+        let offset_x = display_area.get_min().get_x();
+        let offset_y = display_area.get_min().get_y();
 
-        let position = GlobalPosition::new(cell_x + origin_x, cell_y + origin_y);
+        let position = GlobalPosition::new(local_x + offset_x, local_y + offset_y);
         Some(position)
+    }
+
+    /// Gets the local position on the board that the current pointer interaction is occurring on.
+    fn local_position(&self, ctx: &egui::Context) -> Option<GlobalPosition> {
+        let cell_size = self.settings.cell.size;
+        let position = ctx.pointer_interact_pos()?;
+
+        // Position of cell
+        let x = position.x + self.x_offset;
+        let y = position.y + self.y_offset;
+
+        let local_x = (x / cell_size).trunc() as i32;
+        let local_y = (y / cell_size).trunc() as i32;
+
+        Some(GlobalPosition::new(local_x, local_y))
     }
 }
 
