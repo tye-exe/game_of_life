@@ -320,8 +320,6 @@ impl eframe::App for MyApp<'_> {
                     self.save.set_waiting(rx);
                     // Run task in IO thread
                     self.io_thread.execute(move || {
-                        std::thread::sleep(Duration::from_secs(1));
-
                         let _ = tx
                             .send(
                                 SaveBuilder::new_save(simulation_save)
