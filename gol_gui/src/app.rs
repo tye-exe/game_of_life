@@ -1,9 +1,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
-mod edit;
+pub(crate) mod edit;
 
 use crate::{
-    file_management::{board_load::Load, board_save::Save},
+    file_management::{blueprint_save::BlueprintSave, board_load::Load, board_save::Save},
     lang,
     settings::Settings,
     user_actions::{Action, History},
@@ -76,6 +76,7 @@ pub struct MyApp<'a> {
     save: Save,
     /// The menu & options for loading files.
     load: Load,
+    blueprint_save: BlueprintSave,
 
     /// The persistent settings.
     settings: Settings,
@@ -120,8 +121,13 @@ impl eframe::App for MyApp<'_> {
             &mut self.toasts,
         );
 
+        self.blueprint_save
+            .update(self.selection, &mut to_send, &mut self.toasts);
+
         self.save.draw(ctx, &mut to_send);
         self.load.draw(ctx);
+
+        self.blueprint_save.draw(ctx);
 
         // Stores the size the board will take up.
         let mut board_rect = Rect::from_min_max(
@@ -192,6 +198,10 @@ impl eframe::App for MyApp<'_> {
                             EditState::Select.to_string(),
                         );
                     });
+
+                if ui.button("Blueprint Save").clicked() {
+                    self.blueprint_save.show = !self.blueprint_save.show;
+                }
 
                 #[cfg(debug_assertions)]
                 {
@@ -333,7 +343,11 @@ impl eframe::App for MyApp<'_> {
                             });
                     });
                 }
-                SimulatorPacket::BlueprintSave { blueprint } => todo!(),
+                SimulatorPacket::BlueprintSave { blueprint } => self.blueprint_save.save_blueprint(
+                    blueprint,
+                    self.io_thread,
+                    self.settings.file.blueprint_location.clone(),
+                ),
             }
         }
 
@@ -377,6 +391,7 @@ impl<'a> MyApp<'a> {
             selection: None,
             #[cfg(debug_assertions)]
             debug: DebugValues::default(),
+            blueprint_save: Default::default(),
         };
 
         // Load stored configurations

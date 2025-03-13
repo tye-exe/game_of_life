@@ -107,6 +107,7 @@ pub(crate) fn select_interaction(
 }
 
 /// Holds the information regarding the area of the board that was selected by the user.
+#[derive(Clone, Copy)]
 pub(crate) struct Selection {
     drag_start: GlobalPosition,
     drag_end: GlobalPosition,
@@ -166,5 +167,15 @@ impl Selection {
         let y_cell_number = y_diff as f32 * cell_size;
 
         (x_cell_number + x_offset, y_cell_number + y_offset).into()
+    }
+
+    /// Gets the position at which the selection started.
+    pub(crate) fn get_start(&self) -> GlobalPosition {
+        self.drag_start
+    }
+
+    /// Gets the position at which the selection ended.
+    pub(crate) fn get_end(&self) -> GlobalPosition {
+        self.drag_end
     }
 }
