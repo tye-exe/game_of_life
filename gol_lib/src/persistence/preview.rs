@@ -1,21 +1,37 @@
-use std::{path::Path, time::Duration};
-
+use super::{Blueprint, Save};
 use crate::Area;
+use std::time::Duration;
 
-use super::{ParseError, Save, load};
+/// The metadata about a board save.
+pub type SavePreview = Preview<SavePreviewData>;
+/// The metadata about a blueprint.
+pub type BlueprintPreview = Preview<BlueprintPreviewData>;
 
-/// Finds and parses [`SavePreview`]s from the given directory.
-pub fn load_preview<'a>(
-    save_location: impl Into<&'a Path>,
-) -> Result<Box<[Result<SavePreview, ParseError>]>, std::io::Error> {
-    load(save_location)
-}
-
-/// Contains the information about a board save, without actually containing the board save data.
-/// This is useful to load in as a preview for a save, without having to load the entire board into memory.
+/// The unique preview data for a save file.
 #[cfg_attr(test, derive(Debug, PartialEq))]
 #[derive(serde::Deserialize, Clone)]
-pub struct SavePreview {
+pub struct SavePreviewData {
+    /// The area the save takes up on the board.
+    board_area: Area,
+    /// The generation this save was made on.
+    generation: u64,
+}
+
+/// The unique preview data for a blueprint file.
+#[cfg_attr(test, derive(Debug, PartialEq))]
+#[derive(serde::Deserialize, Clone)]
+pub struct BlueprintPreviewData {
+    /// The x size of this blueprint.
+    x_size: i32,
+    /// The y size of this blueprint.
+    y_size: i32,
+}
+
+/// Contains the information about a save or blueprint, without actually containing the board data.
+/// This is useful to load in as a preview, because the (potentially large) board data will not be loaded.
+#[cfg_attr(test, derive(Debug, PartialEq))]
+#[derive(serde::Deserialize, Clone)]
+pub struct Preview<Data> {
     /// The save file version.
     version: u16,
 
@@ -23,56 +39,82 @@ pub struct SavePreview {
     name: Box<str>,
     /// A description of the save.
     description: Box<str>,
-    /// The generation this save was made on.
-    generation: u64,
     /// The time the save was made.
     time: Duration,
     /// The tags this save has.
     tags: Box<[Box<str>]>,
-    /// The area the save takes up on the board.
-    board_area: Area,
+
+    /// The data unique to the preview type.
+    #[serde(flatten)]
+    data: Data,
 }
 
-impl SavePreview {
-    /// The save file version of the save file.
+impl<Data> Preview<Data> {
+    /// The save file version of the file.
     pub fn get_version(&self) -> u16 {
         self.version
     }
 
-    /// The name of the save. This is not the name of the save file.
+    /// The name of the data. This is not the filename of the file.
     pub fn get_name(&self) -> &str {
         &self.name
     }
 
-    /// The description for the save.
+    /// The description for the data.
     pub fn get_description(&self) -> &str {
         &self.description
     }
 
-    /// The generation the save was made on.
-    pub fn get_generation(&self) -> u64 {
-        self.generation
-    }
-
-    /// The time the save was made.
+    /// The time the save of the data was made.
     pub fn get_time(&self) -> Duration {
         self.time
     }
 
-    /// The tags this save is part of.
+    /// The tags this save data is part of.
     pub fn get_tags(&self) -> &[Box<str>] {
         &self.tags
+    }
+}
+
+impl Preview<SavePreviewData> {
+    /// The generation the save was made on.
+    pub fn get_generation(&self) -> u64 {
+        self.data.generation
     }
 
     /// The area the save takes up on the board.
     pub fn get_board_area(&self) -> Area {
-        self.board_area
+        self.data.board_area
     }
 
     /// The filename of the save file (including the extension).
     pub fn get_filename(&self) -> String {
         Save::generate_filename(
-            self.board_area,
+            self.data.board_area,
+            &self.name,
+            &self.description,
+            &self.tags,
+            &self.time,
+        )
+    }
+}
+
+impl Preview<BlueprintPreviewData> {
+    /// The x size of this blueprint.
+    pub fn get_x_size(&self) -> i32 {
+        self.data.x_size
+    }
+
+    /// The y size of this blueprint.
+    pub fn get_y_size(&self) -> i32 {
+        self.data.y_size
+    }
+
+    /// The filename of the blueprint file (including the extension).
+    pub fn get_filename(&self) -> String {
+        Blueprint::generate_filename(
+            self.data.x_size,
+            self.data.y_size,
             &self.name,
             &self.description,
             &self.tags,
@@ -85,7 +127,10 @@ impl SavePreview {
 mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use crate::persistence::{CURRENT_SAVE_VERSION, SaveBuilder, load::ParseErrorKind};
+    use crate::persistence::{
+        CURRENT_SAVE_VERSION, SaveBuilder, load::ParseErrorKind, load_blueprint_preview,
+        load_save_preview,
+    };
 
     use super::*;
 
@@ -94,7 +139,7 @@ mod tests {
     fn empty_dir() {
         let temp_dir = tempfile::tempdir().expect("Able to create temp dir");
 
-        let parse_saves = load_preview(temp_dir.path());
+        let parse_saves = load_save_preview(temp_dir.path());
         assert!(parse_saves.unwrap().is_empty());
     }
 
@@ -108,7 +153,7 @@ mod tests {
         path_buf.push("Invalid");
         std::fs::write(path_buf, "Invalid!!!").expect("Able to write file");
 
-        let parse_saves = load_preview(temp_dir.path()).unwrap();
+        let parse_saves = load_save_preview(temp_dir.path()).unwrap();
         assert_eq!(parse_saves.len(), 1);
 
         // Must return with invalid data error
@@ -133,21 +178,23 @@ mod tests {
             .save(temp_dir.path())
             .expect("Can save file");
 
-        let parse_saves = load_preview(temp_dir.path()).unwrap();
+        let parse_saves = load_save_preview(temp_dir.path()).unwrap();
         assert_eq!(parse_saves.len(), 1);
 
         assert_eq!(
             parse_saves.get(0).unwrap().as_ref().unwrap(),
-            &SavePreview {
+            &Preview {
                 version: CURRENT_SAVE_VERSION,
                 name: save_name.into(),
                 description: save_description.into(),
-                generation: 0,
                 time: save_time
                     .duration_since(UNIX_EPOCH)
                     .unwrap_or(Duration::default()),
                 tags: save_tags,
-                board_area: Default::default()
+                data: SavePreviewData {
+                    board_area: Default::default(),
+                    generation: 0
+                }
             }
         );
     }
@@ -179,7 +226,7 @@ mod tests {
             .save(temp_dir.path())
             .expect("Can save file");
 
-        let parse_saves = load_preview(temp_dir.path()).unwrap();
+        let parse_saves = load_save_preview(temp_dir.path()).unwrap();
         assert_eq!(parse_saves.len(), 2);
 
         // Get "correct" saves
@@ -194,16 +241,18 @@ mod tests {
 
         assert_eq!(
             valid.unwrap(),
-            &SavePreview {
+            &Preview {
                 version: CURRENT_SAVE_VERSION,
                 name: save_name.into(),
                 description: save_description.into(),
-                generation: 0,
                 time: save_time
                     .duration_since(UNIX_EPOCH)
                     .unwrap_or(Duration::default()),
                 tags: save_tags,
-                board_area: Default::default()
+                data: SavePreviewData {
+                    board_area: Default::default(),
+                    generation: 0
+                }
             }
         );
     }
@@ -218,7 +267,7 @@ mod tests {
         path_buf.push("Invalid");
         std::fs::write(path_buf.clone(), "Invalid!!!").expect("Able to write file");
 
-        let parse_saves = load_preview(temp_dir.path()).unwrap();
+        let parse_saves = load_save_preview(temp_dir.path()).unwrap();
         assert_eq!(parse_saves.len(), 1);
 
         // Must return with invalid data error
@@ -246,7 +295,8 @@ mod tests {
             .expect("Able to write save file");
 
         // Temp binding to satisfy rust lifetimes
-        let binding = load_preview(temp_dir.path()).expect("Can read from tempoary save directory");
+        let binding =
+            load_save_preview(temp_dir.path()).expect("Can read from tempoary save directory");
 
         // Gets the parsed preview.
         let save_preview = binding
@@ -263,5 +313,43 @@ mod tests {
             .expect("The filename will be valid unicode");
 
         assert_eq!(filename, save_preview.get_filename());
+    }
+
+    /// A valid blueprint should parse correctly
+    #[test]
+    fn valid_blueprint() {
+        let temp_dir = tempfile::tempdir().expect("Able to create temp dir");
+        let save_name = "name";
+        let save_description = "description";
+        let save_tags = Box::new(["test".to_owned().into_boxed_str()]);
+        let save_time = SystemTime::now();
+
+        let _ = SaveBuilder::new_blueprint(Default::default())
+            .name(save_name)
+            .desciprtion(save_description)
+            .time(save_time)
+            .tags(save_tags.clone())
+            .save(temp_dir.path())
+            .expect("Can save file");
+
+        let parse_saves = load_blueprint_preview(temp_dir.path()).unwrap();
+        assert_eq!(parse_saves.len(), 1);
+
+        assert_eq!(
+            parse_saves.get(0).unwrap().as_ref().unwrap(),
+            &Preview {
+                version: CURRENT_SAVE_VERSION,
+                name: save_name.into(),
+                description: save_description.into(),
+                time: save_time
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or(Duration::default()),
+                tags: save_tags,
+                data: BlueprintPreviewData {
+                    x_size: 0,
+                    y_size: 0
+                }
+            }
+        );
     }
 }

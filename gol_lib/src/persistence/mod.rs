@@ -8,9 +8,10 @@ use std::{
     time::Duration,
 };
 
-pub(crate) use load::load;
-pub use load::{ParseError, load_board_data};
-pub use preview::load_preview;
+pub use load::{
+    ParseError, load_blueprint, load_blueprint_preview, load_board_data, load_preview,
+    load_save_preview,
+};
 pub use save::SaveBuilder;
 
 use crate::{Area, GlobalPosition};
@@ -60,7 +61,7 @@ impl SimulationBlueprint {
 /// The data that the save format consists of.
 #[derive(serde::Serialize, serde::Deserialize)]
 #[cfg_attr(any(test), derive(Debug, PartialEq))]
-pub(crate) struct SaveFormat<Data> {
+pub struct SaveFormat<Data> {
     /// The save format version.
     version: u16,
 
@@ -110,26 +111,6 @@ pub trait GenerateName {
     ) -> String;
 }
 
-impl Save {
-    /// Generates the filename from its component parts.
-    pub fn generate_filename(
-        board_area: Area,
-        save_name: &str,
-        save_description: &str,
-        save_tags: &[Box<str>],
-        save_time: &Duration,
-    ) -> String {
-        Self {
-            view_position: None,
-            simulation_save: SimulationSave {
-                board_area,
-                ..Default::default()
-            },
-        }
-        .filename(save_name, save_description, save_tags, save_time)
-    }
-}
-
 impl GenerateName for Save {
     fn filename(
         &self,
@@ -172,5 +153,51 @@ impl GenerateName for Blueprint {
         let mut filename = hasher.finish().to_string();
         filename.push_str(".save");
         filename
+    }
+}
+
+impl Save {
+    /// Generates the filename from its component parts.
+    pub fn generate_filename(
+        board_area: Area,
+        save_name: &str,
+        save_description: &str,
+        save_tags: &[Box<str>],
+        save_time: &Duration,
+    ) -> String {
+        Self {
+            view_position: None,
+            simulation_save: SimulationSave {
+                board_area,
+                ..Default::default()
+            },
+        }
+        .filename(save_name, save_description, save_tags, save_time)
+    }
+}
+
+impl Blueprint {
+    /// Generates the filename from its component parts.
+    pub fn generate_filename(
+        x_size: i32,
+        y_size: i32,
+        blueprint_name: &str,
+        blueprint_description: &str,
+        blueprint_tags: &[Box<str>],
+        blueprint_time: &Duration,
+    ) -> String {
+        Self {
+            blueprint: SimulationBlueprint {
+                x_size,
+                y_size,
+                blueprint_data: Default::default(),
+            },
+        }
+        .filename(
+            blueprint_name,
+            blueprint_description,
+            blueprint_tags,
+            blueprint_time,
+        )
     }
 }
