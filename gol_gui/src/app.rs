@@ -3,7 +3,10 @@
 pub(crate) mod edit;
 
 use crate::{
-    file_management::{blueprint_save::BlueprintSave, board_load::Load, board_save::Save},
+    file_management::{
+        blueprint_load::BlueprintLoad, blueprint_save::BlueprintSave, board_load::LoadBoard,
+        board_save::Save,
+    },
     lang,
     settings::Settings,
     user_actions::{Action, History},
@@ -75,8 +78,12 @@ pub struct MyApp<'a> {
     /// The menu & options for saving files.
     save: Save,
     /// The menu & options for loading files.
-    load: Load,
+    load: LoadBoard,
+
+    /// The menu & options for saving blueprints.
     blueprint_save: BlueprintSave,
+    /// The menu & options for loading blueprints.
+    blueprint_load: BlueprintLoad,
 
     /// The persistent settings.
     settings: Settings,
@@ -123,11 +130,17 @@ impl eframe::App for MyApp<'_> {
 
         self.blueprint_save
             .update(self.selection, &mut to_send, &mut self.toasts);
+        self.blueprint_load.update(
+            self.io_thread,
+            &self.settings.file.blueprint_location,
+            &mut self.toasts,
+        );
 
         self.save.draw(ctx, &mut to_send);
         self.load.draw(ctx);
 
         self.blueprint_save.draw(ctx);
+        self.blueprint_load.draw(ctx);
 
         // Stores the size the board will take up.
         let mut board_rect = Rect::from_min_max(
@@ -203,6 +216,10 @@ impl eframe::App for MyApp<'_> {
                     self.blueprint_save.show = !self.blueprint_save.show;
                 }
 
+                if ui.button("Blueprint Load").clicked() {
+                    self.blueprint_load.show = !self.blueprint_load.show;
+                }
+
                 #[cfg(debug_assertions)]
                 {
                     if ui.button("Debug Menu").clicked() {
@@ -227,7 +244,7 @@ impl eframe::App for MyApp<'_> {
         self.draw_selection(ctx, board_rect);
 
         // Load selected board
-        if let Some(save_preview) = self.load.save_to_load() {
+        if let Some(save_preview) = self.load.preview_to_load() {
             let mut save_location = self.settings.file.save_location.clone();
             let filename = save_preview.get_filename();
 
@@ -252,6 +269,40 @@ impl eframe::App for MyApp<'_> {
                             .kind(egui_toast::ToastKind::Error)
                             .options(toast_options())
                             .text(format!("Unable to load save file: {err}")),
+                    );
+                }
+            };
+        }
+
+        // Load selected board
+        if let Some(blueprint_preview) = self.blueprint_load.preview_to_load() {
+            let mut blueprint_location = self.settings.file.blueprint_location.clone();
+            let filename = blueprint_preview.get_filename();
+
+            blueprint_location.push(filename);
+
+            match persistence::load_blueprint(blueprint_location.as_path()) {
+                Ok(blueprint) => {
+                    to_send.push(UiPacket::LoadBlueprint {
+                        load_position: (0, 0).into(),
+                        blueprint,
+                    });
+                    self.toasts.add(
+                        Toast::new()
+                            .kind(egui_toast::ToastKind::Success)
+                            .options(toast_options())
+                            .text(format!(
+                                "Successfully loaded blueprint \"{}\"",
+                                blueprint_preview.get_name()
+                            )),
+                    );
+                }
+                Err(err) => {
+                    self.toasts.add(
+                        Toast::new()
+                            .kind(egui_toast::ToastKind::Error)
+                            .options(toast_options())
+                            .text(format!("Unable to load blueprint: {err}")),
                     );
                 }
             };
@@ -392,6 +443,7 @@ impl<'a> MyApp<'a> {
             #[cfg(debug_assertions)]
             debug: DebugValues::default(),
             blueprint_save: Default::default(),
+            blueprint_load: Default::default(),
         };
 
         // Load stored configurations
