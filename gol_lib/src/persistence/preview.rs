@@ -352,4 +352,56 @@ mod tests {
             }
         );
     }
+
+    /// The actual filename and the generated filename are correct.
+    #[test]
+    fn blueprint_filename() {
+        const EXPECTED_FILENAME: &str = "14484944024045809280.save";
+
+        let temp_dir = tempfile::tempdir().expect("Able to create temp dir");
+        let save_name = "name";
+        let save_description = "description";
+        let save_tags = Box::new(["test".to_owned().into_boxed_str()]);
+        // For consistency
+        let save_time = UNIX_EPOCH;
+
+        // Name of file on disk.
+        let file_path = SaveBuilder::new_blueprint(Default::default())
+            .name(save_name)
+            .desciprtion(save_description)
+            .time(save_time)
+            .tags(save_tags.clone())
+            .save(temp_dir.path())
+            .expect("Can save file");
+
+        let file_name = file_path
+            .file_name()
+            .expect("Path will terminate in valid character")
+            .to_str()
+            .expect("The filename will only contain valid characters");
+
+        assert_eq!(
+            file_name, EXPECTED_FILENAME,
+            "The filename of a blueprint file will match the expected filename."
+        );
+
+        // Name of test generated filename.
+        let generated_path = SaveBuilder::new_blueprint(Default::default())
+            .name(save_name)
+            .desciprtion(save_description)
+            .time(save_time)
+            .tags(save_tags.clone())
+            .generate_filename(temp_dir.path());
+
+        let generated_name = generated_path
+            .file_name()
+            .expect("Path will terminate in valid character")
+            .to_str()
+            .expect("The filename will only contain valid characters");
+
+        assert_eq!(
+            generated_name, EXPECTED_FILENAME,
+            "The test generated filename of a blueprint will match the expected filename."
+        );
+    }
 }
