@@ -638,7 +638,7 @@ impl<'a> MyApp<'a> {
         ));
 
         // Number of cell in x axis
-        let x_cells = (board_rect.right() / self.settings.cell.size).ceil() as i32;
+        let x_cells = (board_rect.right() / self.settings.cell.size).ceil() as u32;
         // Create iterator of x position for cells.
         // An extra cell is generated to compensate for the scroll offset.
         let x_iter = (0..x_cells + 1).map(|x| {
@@ -650,7 +650,7 @@ impl<'a> MyApp<'a> {
         });
 
         // Number of cells in y axis
-        let y_cells = (board_rect.bottom() / self.settings.cell.size).floor() as i32;
+        let y_cells = (board_rect.bottom() / self.settings.cell.size).floor() as u32;
         // Create iterator of y position for cells.
         // An extra cell is generated to compensate for the scroll offset.
         let y_iter = (0..y_cells + 1).map(|y| {
@@ -663,8 +663,8 @@ impl<'a> MyApp<'a> {
 
         // Ensure that the size of the display area is the same as the number of cells displayed.
         self.display_area.modify_max((
-            x_cells - self.display_area.x_difference(),
-            y_cells - self.display_area.y_difference(),
+            (x_cells - self.display_area.x_difference()) as i32,
+            (y_cells - self.display_area.y_difference()) as i32,
         ));
 
         // Uses the difference to offset the cells being rendered.

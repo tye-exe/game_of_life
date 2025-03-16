@@ -71,14 +71,22 @@ impl Area {
 
     /// Gets size of this area in the x axis.
     #[doc(alias = "x_size")]
-    pub fn x_difference(&self) -> i32 {
-        self.max.x - self.min.x
+    pub fn x_difference(&self) -> u32 {
+        debug_assert!(
+            (self.max.x - self.min.x) >= 0,
+            "The x difference of any area must always be positive."
+        );
+        (self.max.x - self.min.x) as u32
     }
 
     /// Gets the size of this area in the y axis.
     #[doc(alias = "y_size")]
-    pub fn y_difference(&self) -> i32 {
-        self.max.y - self.min.y
+    pub fn y_difference(&self) -> u32 {
+        debug_assert!(
+            (self.max.y - self.min.y) >= 0,
+            "The y difference of any area must always be positive."
+        );
+        (self.max.y - self.min.y) as u32
     }
 
     /// Returns an iterator that iterates over all the x & y positions within this area as [`GlobalPosition`]s.

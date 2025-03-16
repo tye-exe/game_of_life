@@ -22,9 +22,9 @@ pub struct SavePreviewData {
 #[derive(serde::Deserialize, Clone)]
 pub struct BlueprintPreviewData {
     /// The x size of this blueprint.
-    x_size: i32,
+    x_size: u32,
     /// The y size of this blueprint.
-    y_size: i32,
+    y_size: u32,
 }
 
 /// Contains the information about a save or blueprint, without actually containing the board data.
@@ -101,12 +101,12 @@ impl Preview<SavePreviewData> {
 
 impl Preview<BlueprintPreviewData> {
     /// The x size of this blueprint.
-    pub fn get_x_size(&self) -> i32 {
+    pub fn get_x_size(&self) -> u32 {
         self.data.x_size
     }
 
     /// The y size of this blueprint.
-    pub fn get_y_size(&self) -> i32 {
+    pub fn get_y_size(&self) -> u32 {
         self.data.y_size
     }
 

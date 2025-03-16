@@ -86,9 +86,11 @@ pub trait Simulator: Send {
             blueprint_data,
         } = blueprint;
 
-        let mut area = Area::new((0, 0), (x_size, y_size));
-        area.translate_x(load_position.get_x());
-        area.translate_y(load_position.get_y());
+        let opposite_corner = GlobalPosition::new(
+            load_position.get_x() + x_size as i32,
+            load_position.get_y() + y_size as i32,
+        );
+        let area = Area::new(load_position, opposite_corner);
 
         for (position, cell) in area.iterate_over().zip(blueprint_data.into_iter()) {
             self.set(position, cell.into());

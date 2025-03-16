@@ -43,13 +43,13 @@ impl SimulationSave {
 #[derive(serde::Deserialize, serde::Serialize)]
 #[cfg_attr(any(test, debug_assertions), derive(Debug, PartialEq, Default))]
 pub struct SimulationBlueprint {
-    pub(crate) x_size: i32,
-    pub(crate) y_size: i32,
+    pub(crate) x_size: u32,
+    pub(crate) y_size: u32,
     pub(crate) blueprint_data: BitBox,
 }
 
 impl SimulationBlueprint {
-    pub fn new(x_size: i32, y_size: i32, blueprint_data: impl Into<BitBox>) -> Self {
+    pub fn new(x_size: u32, y_size: u32, blueprint_data: impl Into<BitBox>) -> Self {
         Self {
             x_size,
             y_size,
@@ -179,8 +179,8 @@ impl Save {
 impl Blueprint {
     /// Generates the filename from its component parts.
     pub fn generate_filename(
-        x_size: i32,
-        y_size: i32,
+        x_size: u32,
+        y_size: u32,
         blueprint_name: &str,
         blueprint_description: &str,
         blueprint_tags: &[Box<str>],
