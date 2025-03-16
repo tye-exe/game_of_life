@@ -9,7 +9,7 @@ use super::{LoadMenu, Loadable, State};
 lang! {
     LOAD_WINDOW, "Load Board";
     LOAD_FAILED, "Cannot retrieve save previews.";
-    DELETE_FILE_SUCCESS, "Successfully delete file:";
+    DELETE_FILE_SUCCESS, "Successfully deleted file:";
     DELETE_FILE_ERROR, "Failed to delete file:"
 }
 
