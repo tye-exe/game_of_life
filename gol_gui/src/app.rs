@@ -663,8 +663,9 @@ impl<'a> MyApp<'a> {
 
         // Ensure that the size of the display area is the same as the number of cells displayed.
         self.display_area.modify_max((
-            (x_cells - self.display_area.x_difference()) as i32,
-            (y_cells - self.display_area.y_difference()) as i32,
+            // Subtract needs to be performed as i32, because the result might be negative.
+            (x_cells as i32 - self.display_area.x_difference() as i32),
+            (y_cells as i32 - self.display_area.y_difference() as i32),
         ));
 
         // Uses the difference to offset the cells being rendered.
