@@ -21,7 +21,9 @@ lang! {
         KEYBIND_SETTINGS_MENU_TOGGLE, "Toggle Settings Menu:";
         FILE_HEADER, "Storage locations";
         FILE_SAVE_PATH, "Save Path:";
-        FILE_BLUEPRINT_PATH, "Blueprint Path:"
+        FILE_BLUEPRINT_PATH, "Blueprint Path:";
+        THEME_HEADER, "Themes";
+        THEME_TOGGLE, "Toggle theme: "
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Default)]
@@ -34,7 +36,10 @@ pub(crate) struct Settings {
     pub(crate) cell: CellSettings,
     /// The settings for keybinds.
     pub(crate) keybind: KeybindSettings,
+    /// The settings for file storage.
     pub(crate) file: FileSettings,
+    /// The theme settings.
+    pub(crate) themes: ThemeSettings,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -79,6 +84,10 @@ enum Selected {
     Blueprint,
 }
 
+#[derive(serde::Deserialize, serde::Serialize, Debug, Default)]
+#[serde(default)]
+pub(crate) struct ThemeSettings {}
+
 impl Settings {
     /// The key used for saving the configuration with [`eframe::set_value`] & [`eframe::get_value`]
     pub(crate) const SAVE_KEY: &str = "game_of_life";
@@ -101,6 +110,7 @@ impl Settings {
             self.cell.draw(ui);
             self.keybind.draw(ui);
             self.file.draw(ui, ctx);
+            self.themes.draw(ui);
         })
     }
 }
@@ -279,4 +289,15 @@ fn get_display_path(path: &Path) -> String {
     // Get last 40 chars
     let displayed_path: String = graphemes.into_iter().rev().take(40).rev().collect();
     format!("...{displayed_path}")
+}
+
+impl ThemeSettings {
+    pub(crate) fn draw(&self, ui: &mut egui::Ui) {
+        egui::CollapsingHeader::new(THEME_HEADER).show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.label(THEME_TOGGLE);
+                egui::global_theme_preference_buttons(ui);
+            });
+        });
+    }
 }
