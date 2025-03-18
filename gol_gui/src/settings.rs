@@ -1,4 +1,8 @@
-use std::path::{Path, PathBuf};
+use std::{
+    marker::PhantomData,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use egui::{Color32, KeyboardShortcut};
 use egui_file_dialog::FileDialog;
@@ -23,7 +27,21 @@ lang! {
         FILE_SAVE_PATH, "Save Path:";
         FILE_BLUEPRINT_PATH, "Blueprint Path:";
         THEME_HEADER, "Themes";
-        THEME_TOGGLE, "Toggle theme: "
+        THEME_TOGGLE, "Toggle theme: ";
+        TEXT_COLOUR, "Text Colour:";
+        WINDOW_COLOUR, "Window Colour:";
+        SELECTION_COLOUR, "Selection Colour:";
+        PANEL_COLOUR, "Panel Colour:";
+        NON_INTERACTIVE_BG, "Non Interactive Primary:";
+        INACTIVE_BG, "Inactive Primary:";
+        OPEN_BG, "Open Primary:";
+        NON_INTERACTIVE_WEAK, "None Interactive Secondary:";
+        INACTIVE_WEAK, "Inactgive Secondary:";
+        OPEN_WEAK, "Open Secondary:";
+        HOVERED_BG, "Hovered Primary:";
+        ACTIVE_BG, "Active: Primary:";
+        HOVERED_WEAK, "Hovered Secondary:";
+        ACTIVE_WEAK, "Active Secondary:"
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Default)]
@@ -84,9 +102,70 @@ enum Selected {
     Blueprint,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Debug, Default)]
+/// Contains the settings to allow a user to customise the application appearance.
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
 #[serde(default)]
-pub(crate) struct ThemeSettings {}
+pub(crate) struct ThemeSettings {
+    /// The theme overrides for light mode.
+    light: StyleOverride,
+    /// The theme overrides for dark mode.
+    dark: StyleOverride,
+}
+
+impl Default for ThemeSettings {
+    fn default() -> Self {
+        let dark = egui::Theme::Dark.default_visuals();
+        let light = egui::Theme::Light.default_visuals();
+
+        Self {
+            light: StyleOverride::from_visual(light),
+            dark: StyleOverride::from_visual(dark),
+        }
+    }
+}
+
+/// The overrides for a theme.
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
+pub(crate) struct StyleOverride {
+    text_colour: Color32,
+    window_fill: Color32,
+    selection_bg: Color32,
+    panel_fill: Color32,
+
+    non_interactive_bg: Color32,
+    inactive_bg: Color32,
+    open_bg: Color32,
+    non_interactive_weak: Color32,
+    inactive_weak: Color32,
+    open_weak: Color32,
+
+    hovered_bg: Color32,
+    active_bg: Color32,
+    hovered_weak: Color32,
+    active_weak: Color32,
+}
+
+impl StyleOverride {
+    /// Generates an override with the given visual colours.
+    pub(crate) fn from_visual(visual: egui::Visuals) -> Self {
+        Self {
+            text_colour: visual.text_color(),
+            window_fill: visual.window_fill,
+            selection_bg: visual.selection.bg_fill,
+            panel_fill: visual.panel_fill,
+            non_interactive_bg: visual.widgets.noninteractive.bg_fill,
+            inactive_bg: visual.widgets.inactive.bg_fill,
+            open_bg: visual.widgets.open.bg_fill,
+            non_interactive_weak: visual.widgets.noninteractive.weak_bg_fill,
+            inactive_weak: visual.widgets.inactive.weak_bg_fill,
+            open_weak: visual.widgets.open.weak_bg_fill,
+            hovered_bg: visual.widgets.hovered.bg_fill,
+            active_bg: visual.widgets.active.bg_fill,
+            hovered_weak: visual.widgets.hovered.weak_bg_fill,
+            active_weak: visual.widgets.active.weak_bg_fill,
+        }
+    }
+}
 
 impl Settings {
     /// The key used for saving the configuration with [`eframe::set_value`] & [`eframe::get_value`]
@@ -292,11 +371,190 @@ fn get_display_path(path: &Path) -> String {
 }
 
 impl ThemeSettings {
-    pub(crate) fn draw(&self, ui: &mut egui::Ui) {
+    /// Gets the style overrides for the given theme.
+    pub(crate) fn get_style(&self, current_theme: egui::Theme) -> &StyleOverride {
+        match current_theme {
+            egui::Theme::Dark => &self.dark,
+            egui::Theme::Light => &self.light,
+        }
+    }
+
+    /// Gets mutable style overrides for the given theme.
+    pub(crate) fn get_style_mut(&mut self, current_theme: egui::Theme) -> &mut StyleOverride {
+        match current_theme {
+            egui::Theme::Dark => &mut self.dark,
+            egui::Theme::Light => &mut self.light,
+        }
+    }
+
+    /// Applies the current style overrides to the entire gui.
+    pub(crate) fn apply_style(&self, ctx: &egui::Context) {
+        let style_override = self.get_style(ctx.theme());
+
+        ctx.style_mut(|style| {
+            style.visuals.override_text_color = Some(style_override.text_colour);
+            style.visuals.window_fill = style_override.window_fill;
+            style.visuals.selection.bg_fill = style_override.selection_bg;
+            style.visuals.panel_fill = style_override.panel_fill;
+
+            style.visuals.widgets.noninteractive.bg_fill = style_override.non_interactive_bg;
+            style.visuals.widgets.inactive.bg_fill = style_override.inactive_bg;
+            style.visuals.widgets.open.bg_fill = style_override.open_bg;
+            style.visuals.widgets.noninteractive.weak_bg_fill = style_override.non_interactive_weak;
+            style.visuals.widgets.inactive.weak_bg_fill = style_override.inactive_weak;
+            style.visuals.widgets.open.weak_bg_fill = style_override.open_weak;
+
+            style.visuals.widgets.hovered.bg_fill = style_override.hovered_bg;
+            style.visuals.widgets.active.bg_fill = style_override.active_bg;
+            style.visuals.widgets.hovered.weak_bg_fill = style_override.hovered_weak;
+            style.visuals.widgets.active.weak_bg_fill = style_override.active_weak;
+        });
+    }
+
+    /// Draws the theme settings sub-menu.
+    pub(crate) fn draw(&mut self, ui: &mut egui::Ui) {
         egui::CollapsingHeader::new(THEME_HEADER).show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.label(THEME_TOGGLE);
                 egui::global_theme_preference_buttons(ui);
+            });
+
+            let current_theme = ui.ctx().theme();
+            let style_override = self.get_style_mut(current_theme);
+
+            ui.horizontal(|ui| {
+                ui.label(TEXT_COLOUR);
+                ui.color_edit_button_srgba(&mut style_override.text_colour);
+                if ui.small_button(RESET).clicked() {
+                    style_override.text_colour = ThemeSettings::default()
+                        .get_style(current_theme)
+                        .text_colour;
+                }
+            });
+
+            ui.horizontal(|ui| {
+                ui.label(WINDOW_COLOUR);
+                ui.color_edit_button_srgba(&mut style_override.window_fill);
+                if ui.small_button(RESET).clicked() {
+                    style_override.window_fill = ThemeSettings::default()
+                        .get_style(current_theme)
+                        .window_fill;
+                }
+            });
+
+            ui.horizontal(|ui| {
+                ui.label(SELECTION_COLOUR);
+                ui.color_edit_button_srgba(&mut style_override.selection_bg);
+                if ui.small_button(RESET).clicked() {
+                    style_override.selection_bg = ThemeSettings::default()
+                        .get_style(current_theme)
+                        .selection_bg;
+                }
+            });
+
+            ui.horizontal(|ui| {
+                ui.label(PANEL_COLOUR);
+                ui.color_edit_button_srgba(&mut style_override.panel_fill);
+                if ui.small_button(RESET).clicked() {
+                    style_override.panel_fill =
+                        ThemeSettings::default().get_style(current_theme).panel_fill;
+                }
+            });
+
+            ui.horizontal(|ui| {
+                ui.label(NON_INTERACTIVE_BG);
+                ui.color_edit_button_srgba(&mut style_override.non_interactive_bg);
+                if ui.small_button(RESET).clicked() {
+                    style_override.non_interactive_bg = ThemeSettings::default()
+                        .get_style(current_theme)
+                        .non_interactive_bg;
+                }
+            });
+
+            ui.horizontal(|ui| {
+                ui.label(NON_INTERACTIVE_WEAK);
+                ui.color_edit_button_srgba(&mut style_override.non_interactive_weak);
+                if ui.small_button(RESET).clicked() {
+                    style_override.non_interactive_weak = ThemeSettings::default()
+                        .get_style(current_theme)
+                        .non_interactive_bg;
+                }
+            });
+
+            ui.horizontal(|ui| {
+                ui.label(INACTIVE_BG);
+                ui.color_edit_button_srgba(&mut style_override.inactive_bg);
+                if ui.small_button(RESET).clicked() {
+                    style_override.inactive_bg = ThemeSettings::default()
+                        .get_style(current_theme)
+                        .inactive_bg;
+                }
+            });
+
+            ui.horizontal(|ui| {
+                ui.label(INACTIVE_WEAK);
+                ui.color_edit_button_srgba(&mut style_override.inactive_weak);
+                if ui.small_button(RESET).clicked() {
+                    style_override.inactive_weak = ThemeSettings::default()
+                        .get_style(current_theme)
+                        .inactive_weak;
+                }
+            });
+
+            ui.horizontal(|ui| {
+                ui.label(OPEN_BG);
+                ui.color_edit_button_srgba(&mut style_override.open_bg);
+                if ui.small_button(RESET).clicked() {
+                    style_override.open_bg =
+                        ThemeSettings::default().get_style(current_theme).open_bg;
+                }
+            });
+
+            ui.horizontal(|ui| {
+                ui.label(OPEN_WEAK);
+                ui.color_edit_button_srgba(&mut style_override.open_weak);
+                if ui.small_button(RESET).clicked() {
+                    style_override.open_weak =
+                        ThemeSettings::default().get_style(current_theme).open_weak;
+                }
+            });
+
+            ui.horizontal(|ui| {
+                ui.label(HOVERED_BG);
+                ui.color_edit_button_srgba(&mut style_override.hovered_bg);
+                if ui.small_button(RESET).clicked() {
+                    style_override.hovered_bg =
+                        ThemeSettings::default().get_style(current_theme).hovered_bg;
+                }
+            });
+
+            ui.horizontal(|ui| {
+                ui.label(HOVERED_WEAK);
+                ui.color_edit_button_srgba(&mut style_override.hovered_weak);
+                if ui.small_button(RESET).clicked() {
+                    style_override.hovered_weak = ThemeSettings::default()
+                        .get_style(current_theme)
+                        .hovered_weak;
+                }
+            });
+
+            ui.horizontal(|ui| {
+                ui.label(ACTIVE_BG);
+                ui.color_edit_button_srgba(&mut style_override.active_bg);
+                if ui.small_button(RESET).clicked() {
+                    style_override.active_bg =
+                        ThemeSettings::default().get_style(current_theme).active_bg;
+                }
+            });
+
+            ui.horizontal(|ui| {
+                ui.label(ACTIVE_WEAK);
+                ui.color_edit_button_srgba(&mut style_override.active_weak);
+                if ui.small_button(RESET).clicked() {
+                    style_override.active_weak = ThemeSettings::default()
+                        .get_style(current_theme)
+                        .active_weak;
+                }
             });
         });
     }
