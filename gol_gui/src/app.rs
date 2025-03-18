@@ -801,7 +801,7 @@ impl<'a> MyApp<'a> {
             let rect_shape = RectShape::stroke(
                 rect,
                 1.0,
-                egui::Stroke::new(5.0, ctx.theme().default_visuals().hyperlink_color),
+                egui::Stroke::new(5.0, self.settings.cell.selection_colour),
                 egui::StrokeKind::Middle,
             );
             painter.add(rect_shape);

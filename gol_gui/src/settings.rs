@@ -17,20 +17,21 @@ lang! {
         LABEL, "Settings";
         CELL_HEADER, "Cells";
         KEYBIND_HEADER, "Keybinds";
-        CELL_ALIVE_COLOUR, "Cell alive colour:";
-        CELL_DEAD_COLOUR, "Cell dead colour:";
-        CELL_GRID_COLOUR, "Cell grid colour:";
-        CELL_SIZE, "Cell size:";
+        CELL_ALIVE_COLOUR, "Cell Alive Colour:";
+        CELL_DEAD_COLOUR, "Cell Dead Colour:";
+        CELL_GRID_COLOUR, "Cell Grid Colour:";
+        CELL_SELECTION_COLOUR, "Cell Selection Colour:";
+        CELL_SIZE, "Cell Size:";
         KEYBIND_SIMULATION_TOGGLE, "Toggle Simulation:";
         KEYBIND_SETTINGS_MENU_TOGGLE, "Toggle Settings Menu:";
-        FILE_HEADER, "Storage locations";
+        FILE_HEADER, "Storage Locations";
         FILE_SAVE_PATH, "Save Path:";
         FILE_BLUEPRINT_PATH, "Blueprint Path:";
         THEME_HEADER, "Themes";
-        THEME_TOGGLE, "Toggle theme: ";
+        THEME_TOGGLE, "Toggle Theme: ";
         TEXT_COLOUR, "Text Colour:";
         WINDOW_COLOUR, "Window Colour:";
-        SELECTION_COLOUR, "Selection Colour:";
+        SELECTION_COLOUR, "Text Selection Colour:";
         PANEL_COLOUR, "Panel Colour:";
         NON_INTERACTIVE_BG, "Non Interactive Primary:";
         INACTIVE_BG, "Inactive Primary:";
@@ -69,6 +70,8 @@ pub(crate) struct CellSettings {
     pub(crate) dead_colour: Color32,
     /// The colour of the grid lines separating the cells.
     pub(crate) grid_colour: Color32,
+    /// The colour of the selection on the cell grid.
+    pub(crate) selection_colour: Color32,
     /// The size of each cell.
     pub(crate) size: f32,
 }
@@ -208,6 +211,7 @@ impl Default for CellSettings {
             // Dark blue/purple, more pleasing on the eyes.
             grid_colour: Color32::from_rgb(47, 43, 77),
             size: 15.0,
+            selection_colour: Color32::from_rgb(90, 170, 255),
         }
     }
 }
@@ -236,6 +240,14 @@ impl CellSettings {
                 ui.color_edit_button_srgba(&mut self.grid_colour);
                 if ui.small_button(RESET).clicked() {
                     self.grid_colour = CellSettings::default().grid_colour;
+                }
+            });
+
+            ui.horizontal(|ui| {
+                ui.label(CELL_SELECTION_COLOUR);
+                ui.color_edit_button_srgba(&mut self.selection_colour);
+                if ui.small_button(RESET).clicked() {
+                    self.selection_colour = CellSettings::default().selection_colour;
                 }
             });
 
