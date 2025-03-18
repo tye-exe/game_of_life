@@ -110,6 +110,11 @@ pub(crate) struct ThemeSettings {
     light: StyleOverride,
     /// The theme overrides for dark mode.
     dark: StyleOverride,
+
+    /// The length of the longest label within this sub-menu.
+    /// This is used to align the colour edit buttons.
+    #[serde(skip)]
+    longest_label: f32,
 }
 
 impl Default for ThemeSettings {
@@ -120,6 +125,7 @@ impl Default for ThemeSettings {
         Self {
             light: StyleOverride::from_visual(light),
             dark: StyleOverride::from_visual(dark),
+            longest_label: 0.0,
         }
     }
 }
@@ -419,11 +425,17 @@ impl ThemeSettings {
                 egui::global_theme_preference_buttons(ui);
             });
 
+            ui.separator();
+
             let current_theme = ui.ctx().theme();
+            let mut longest_label = self.longest_label;
             let style_override = self.get_style_mut(current_theme);
 
             ui.horizontal(|ui| {
-                ui.label(TEXT_COLOUR);
+                let label_width = ui.label(TEXT_COLOUR).rect.max.x;
+                longest_label = longest_label.max(label_width);
+                ui.allocate_space(egui::vec2(longest_label - label_width, 1.0));
+
                 ui.color_edit_button_srgba(&mut style_override.text_colour);
                 if ui.small_button(RESET).clicked() {
                     style_override.text_colour = ThemeSettings::default()
@@ -433,7 +445,10 @@ impl ThemeSettings {
             });
 
             ui.horizontal(|ui| {
-                ui.label(WINDOW_COLOUR);
+                let label_width = ui.label(WINDOW_COLOUR).rect.max.x;
+                longest_label = longest_label.max(label_width);
+                ui.allocate_space(egui::vec2(longest_label - label_width, 1.0));
+
                 ui.color_edit_button_srgba(&mut style_override.window_fill);
                 if ui.small_button(RESET).clicked() {
                     style_override.window_fill = ThemeSettings::default()
@@ -443,7 +458,10 @@ impl ThemeSettings {
             });
 
             ui.horizontal(|ui| {
-                ui.label(SELECTION_COLOUR);
+                let label_width = ui.label(SELECTION_COLOUR).rect.max.x;
+                longest_label = longest_label.max(label_width);
+                ui.allocate_space(egui::vec2(longest_label - label_width, 1.0));
+
                 ui.color_edit_button_srgba(&mut style_override.selection_bg);
                 if ui.small_button(RESET).clicked() {
                     style_override.selection_bg = ThemeSettings::default()
@@ -453,7 +471,10 @@ impl ThemeSettings {
             });
 
             ui.horizontal(|ui| {
-                ui.label(PANEL_COLOUR);
+                let label_width = ui.label(PANEL_COLOUR).rect.max.x;
+                longest_label = longest_label.max(label_width);
+                ui.allocate_space(egui::vec2(longest_label - label_width, 1.0));
+
                 ui.color_edit_button_srgba(&mut style_override.panel_fill);
                 if ui.small_button(RESET).clicked() {
                     style_override.panel_fill =
@@ -462,7 +483,10 @@ impl ThemeSettings {
             });
 
             ui.horizontal(|ui| {
-                ui.label(NON_INTERACTIVE_BG);
+                let label_width = ui.label(NON_INTERACTIVE_BG).rect.max.x;
+                longest_label = longest_label.max(label_width);
+                ui.allocate_space(egui::vec2(longest_label - label_width, 1.0));
+
                 ui.color_edit_button_srgba(&mut style_override.non_interactive_bg);
                 if ui.small_button(RESET).clicked() {
                     style_override.non_interactive_bg = ThemeSettings::default()
@@ -472,7 +496,10 @@ impl ThemeSettings {
             });
 
             ui.horizontal(|ui| {
-                ui.label(NON_INTERACTIVE_WEAK);
+                let label_width = ui.label(NON_INTERACTIVE_WEAK).rect.max.x;
+                longest_label = longest_label.max(label_width);
+                ui.allocate_space(egui::vec2(longest_label - label_width, 1.0));
+
                 ui.color_edit_button_srgba(&mut style_override.non_interactive_weak);
                 if ui.small_button(RESET).clicked() {
                     style_override.non_interactive_weak = ThemeSettings::default()
@@ -482,7 +509,10 @@ impl ThemeSettings {
             });
 
             ui.horizontal(|ui| {
-                ui.label(INACTIVE_BG);
+                let label_width = ui.label(INACTIVE_BG).rect.max.x;
+                longest_label = longest_label.max(label_width);
+                ui.allocate_space(egui::vec2(longest_label - label_width, 1.0));
+
                 ui.color_edit_button_srgba(&mut style_override.inactive_bg);
                 if ui.small_button(RESET).clicked() {
                     style_override.inactive_bg = ThemeSettings::default()
@@ -492,7 +522,10 @@ impl ThemeSettings {
             });
 
             ui.horizontal(|ui| {
-                ui.label(INACTIVE_WEAK);
+                let label_width = ui.label(INACTIVE_WEAK).rect.max.x;
+                longest_label = longest_label.max(label_width);
+                ui.allocate_space(egui::vec2(longest_label - label_width, 1.0));
+
                 ui.color_edit_button_srgba(&mut style_override.inactive_weak);
                 if ui.small_button(RESET).clicked() {
                     style_override.inactive_weak = ThemeSettings::default()
@@ -502,7 +535,10 @@ impl ThemeSettings {
             });
 
             ui.horizontal(|ui| {
-                ui.label(OPEN_BG);
+                let label_width = ui.label(OPEN_BG).rect.max.x;
+                longest_label = longest_label.max(label_width);
+                ui.allocate_space(egui::vec2(longest_label - label_width, 1.0));
+
                 ui.color_edit_button_srgba(&mut style_override.open_bg);
                 if ui.small_button(RESET).clicked() {
                     style_override.open_bg =
@@ -511,7 +547,10 @@ impl ThemeSettings {
             });
 
             ui.horizontal(|ui| {
-                ui.label(OPEN_WEAK);
+                let label_width = ui.label(OPEN_WEAK).rect.max.x;
+                longest_label = longest_label.max(label_width);
+                ui.allocate_space(egui::vec2(longest_label - label_width, 1.0));
+
                 ui.color_edit_button_srgba(&mut style_override.open_weak);
                 if ui.small_button(RESET).clicked() {
                     style_override.open_weak =
@@ -520,7 +559,10 @@ impl ThemeSettings {
             });
 
             ui.horizontal(|ui| {
-                ui.label(HOVERED_BG);
+                let label_width = ui.label(HOVERED_BG).rect.max.x;
+                longest_label = longest_label.max(label_width);
+                ui.allocate_space(egui::vec2(longest_label - label_width, 1.0));
+
                 ui.color_edit_button_srgba(&mut style_override.hovered_bg);
                 if ui.small_button(RESET).clicked() {
                     style_override.hovered_bg =
@@ -529,7 +571,10 @@ impl ThemeSettings {
             });
 
             ui.horizontal(|ui| {
-                ui.label(HOVERED_WEAK);
+                let label_width = ui.label(HOVERED_WEAK).rect.max.x;
+                longest_label = longest_label.max(label_width);
+                ui.allocate_space(egui::vec2(longest_label - label_width, 1.0));
+
                 ui.color_edit_button_srgba(&mut style_override.hovered_weak);
                 if ui.small_button(RESET).clicked() {
                     style_override.hovered_weak = ThemeSettings::default()
@@ -539,7 +584,10 @@ impl ThemeSettings {
             });
 
             ui.horizontal(|ui| {
-                ui.label(ACTIVE_BG);
+                let label_width = ui.label(ACTIVE_BG).rect.max.x;
+                longest_label = longest_label.max(label_width);
+                ui.allocate_space(egui::vec2(longest_label - label_width, 1.0));
+
                 ui.color_edit_button_srgba(&mut style_override.active_bg);
                 if ui.small_button(RESET).clicked() {
                     style_override.active_bg =
@@ -548,7 +596,10 @@ impl ThemeSettings {
             });
 
             ui.horizontal(|ui| {
-                ui.label(ACTIVE_WEAK);
+                let label_width = ui.label(ACTIVE_WEAK).rect.max.x;
+                longest_label = longest_label.max(label_width);
+                ui.allocate_space(egui::vec2(longest_label - label_width, 1.0));
+
                 ui.color_edit_button_srgba(&mut style_override.active_weak);
                 if ui.small_button(RESET).clicked() {
                     style_override.active_weak = ThemeSettings::default()
@@ -556,6 +607,8 @@ impl ThemeSettings {
                         .active_weak;
                 }
             });
+
+            self.longest_label = longest_label;
         });
     }
 }
