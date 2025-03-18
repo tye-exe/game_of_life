@@ -108,7 +108,7 @@ impl eframe::App for MyApp<'_> {
         #[cfg(debug_assertions)]
         self.debug_window(ctx, frame);
 
-        self.settings.themes.apply_style(ctx);
+        self.settings.interface.apply_style(ctx);
 
         self.toasts.show(ctx);
 

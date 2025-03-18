@@ -27,7 +27,7 @@ lang! {
         FILE_HEADER, "Storage Locations";
         FILE_SAVE_PATH, "Save Path:";
         FILE_BLUEPRINT_PATH, "Blueprint Path:";
-        THEME_HEADER, "Themes";
+        INTERFACE_HEADER, "Interface";
         THEME_TOGGLE, "Toggle Theme: ";
         TEXT_COLOUR, "Text Colour:";
         WINDOW_COLOUR, "Window Colour:";
@@ -57,8 +57,8 @@ pub(crate) struct Settings {
     pub(crate) keybind: KeybindSettings,
     /// The settings for file storage.
     pub(crate) file: FileSettings,
-    /// The theme settings.
-    pub(crate) themes: ThemeSettings,
+    /// The interface settings.
+    pub(crate) interface: InterfaceSettings,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -108,7 +108,7 @@ enum Selected {
 /// Contains the settings to allow a user to customise the application appearance.
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 #[serde(default)]
-pub(crate) struct ThemeSettings {
+pub(crate) struct InterfaceSettings {
     /// The theme overrides for light mode.
     light: StyleOverride,
     /// The theme overrides for dark mode.
@@ -118,19 +118,6 @@ pub(crate) struct ThemeSettings {
     /// This is used to align the colour edit buttons.
     #[serde(skip)]
     longest_label: f32,
-}
-
-impl Default for ThemeSettings {
-    fn default() -> Self {
-        let dark = egui::Theme::Dark.default_visuals();
-        let light = egui::Theme::Light.default_visuals();
-
-        Self {
-            light: StyleOverride::from_visual(light),
-            dark: StyleOverride::from_visual(dark),
-            longest_label: 0.0,
-        }
-    }
 }
 
 /// The overrides for a theme.
@@ -152,28 +139,6 @@ pub(crate) struct StyleOverride {
     active_bg: Color32,
     hovered_weak: Color32,
     active_weak: Color32,
-}
-
-impl StyleOverride {
-    /// Generates an override with the given visual colours.
-    pub(crate) fn from_visual(visual: egui::Visuals) -> Self {
-        Self {
-            text_colour: visual.text_color(),
-            window_fill: visual.window_fill,
-            selection_bg: visual.selection.bg_fill,
-            panel_fill: visual.panel_fill,
-            non_interactive_bg: visual.widgets.noninteractive.bg_fill,
-            inactive_bg: visual.widgets.inactive.bg_fill,
-            open_bg: visual.widgets.open.bg_fill,
-            non_interactive_weak: visual.widgets.noninteractive.weak_bg_fill,
-            inactive_weak: visual.widgets.inactive.weak_bg_fill,
-            open_weak: visual.widgets.open.weak_bg_fill,
-            hovered_bg: visual.widgets.hovered.bg_fill,
-            active_bg: visual.widgets.active.bg_fill,
-            hovered_weak: visual.widgets.hovered.weak_bg_fill,
-            active_weak: visual.widgets.active.weak_bg_fill,
-        }
-    }
 }
 
 impl Settings {
@@ -198,7 +163,7 @@ impl Settings {
             self.cell.draw(ui);
             self.keybind.draw(ui);
             self.file.draw(ui, ctx);
-            self.themes.draw(ui);
+            self.interface.draw(ui);
         })
     }
 }
@@ -388,7 +353,42 @@ fn get_display_path(path: &Path) -> String {
     format!("...{displayed_path}")
 }
 
-impl ThemeSettings {
+impl Default for InterfaceSettings {
+    fn default() -> Self {
+        let dark = egui::Theme::Dark.default_visuals();
+        let light = egui::Theme::Light.default_visuals();
+
+        Self {
+            light: StyleOverride::from_visual(light),
+            dark: StyleOverride::from_visual(dark),
+            longest_label: 0.0,
+        }
+    }
+}
+
+impl StyleOverride {
+    /// Generates an override with the given visual colours.
+    pub(crate) fn from_visual(visual: egui::Visuals) -> Self {
+        Self {
+            text_colour: visual.text_color(),
+            window_fill: visual.window_fill,
+            selection_bg: visual.selection.bg_fill,
+            panel_fill: visual.panel_fill,
+            non_interactive_bg: visual.widgets.noninteractive.bg_fill,
+            inactive_bg: visual.widgets.inactive.bg_fill,
+            open_bg: visual.widgets.open.bg_fill,
+            non_interactive_weak: visual.widgets.noninteractive.weak_bg_fill,
+            inactive_weak: visual.widgets.inactive.weak_bg_fill,
+            open_weak: visual.widgets.open.weak_bg_fill,
+            hovered_bg: visual.widgets.hovered.bg_fill,
+            active_bg: visual.widgets.active.bg_fill,
+            hovered_weak: visual.widgets.hovered.weak_bg_fill,
+            active_weak: visual.widgets.active.weak_bg_fill,
+        }
+    }
+}
+
+impl InterfaceSettings {
     /// Gets the style overrides for the given theme.
     pub(crate) fn get_style(&self, current_theme: egui::Theme) -> &StyleOverride {
         match current_theme {
@@ -429,9 +429,9 @@ impl ThemeSettings {
         });
     }
 
-    /// Draws the theme settings sub-menu.
+    /// Draws the interface settings sub-menu.
     pub(crate) fn draw(&mut self, ui: &mut egui::Ui) {
-        egui::CollapsingHeader::new(THEME_HEADER).show(ui, |ui| {
+        egui::CollapsingHeader::new(INTERFACE_HEADER).show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.label(THEME_TOGGLE);
                 egui::global_theme_preference_buttons(ui);
@@ -450,7 +450,7 @@ impl ThemeSettings {
 
                 ui.color_edit_button_srgba(&mut style_override.text_colour);
                 if ui.small_button(RESET).clicked() {
-                    style_override.text_colour = ThemeSettings::default()
+                    style_override.text_colour = InterfaceSettings::default()
                         .get_style(current_theme)
                         .text_colour;
                 }
@@ -463,7 +463,7 @@ impl ThemeSettings {
 
                 ui.color_edit_button_srgba(&mut style_override.window_fill);
                 if ui.small_button(RESET).clicked() {
-                    style_override.window_fill = ThemeSettings::default()
+                    style_override.window_fill = InterfaceSettings::default()
                         .get_style(current_theme)
                         .window_fill;
                 }
@@ -476,7 +476,7 @@ impl ThemeSettings {
 
                 ui.color_edit_button_srgba(&mut style_override.selection_bg);
                 if ui.small_button(RESET).clicked() {
-                    style_override.selection_bg = ThemeSettings::default()
+                    style_override.selection_bg = InterfaceSettings::default()
                         .get_style(current_theme)
                         .selection_bg;
                 }
@@ -489,8 +489,9 @@ impl ThemeSettings {
 
                 ui.color_edit_button_srgba(&mut style_override.panel_fill);
                 if ui.small_button(RESET).clicked() {
-                    style_override.panel_fill =
-                        ThemeSettings::default().get_style(current_theme).panel_fill;
+                    style_override.panel_fill = InterfaceSettings::default()
+                        .get_style(current_theme)
+                        .panel_fill;
                 }
             });
 
@@ -501,7 +502,7 @@ impl ThemeSettings {
 
                 ui.color_edit_button_srgba(&mut style_override.non_interactive_bg);
                 if ui.small_button(RESET).clicked() {
-                    style_override.non_interactive_bg = ThemeSettings::default()
+                    style_override.non_interactive_bg = InterfaceSettings::default()
                         .get_style(current_theme)
                         .non_interactive_bg;
                 }
@@ -514,7 +515,7 @@ impl ThemeSettings {
 
                 ui.color_edit_button_srgba(&mut style_override.non_interactive_weak);
                 if ui.small_button(RESET).clicked() {
-                    style_override.non_interactive_weak = ThemeSettings::default()
+                    style_override.non_interactive_weak = InterfaceSettings::default()
                         .get_style(current_theme)
                         .non_interactive_bg;
                 }
@@ -527,7 +528,7 @@ impl ThemeSettings {
 
                 ui.color_edit_button_srgba(&mut style_override.inactive_bg);
                 if ui.small_button(RESET).clicked() {
-                    style_override.inactive_bg = ThemeSettings::default()
+                    style_override.inactive_bg = InterfaceSettings::default()
                         .get_style(current_theme)
                         .inactive_bg;
                 }
@@ -540,7 +541,7 @@ impl ThemeSettings {
 
                 ui.color_edit_button_srgba(&mut style_override.inactive_weak);
                 if ui.small_button(RESET).clicked() {
-                    style_override.inactive_weak = ThemeSettings::default()
+                    style_override.inactive_weak = InterfaceSettings::default()
                         .get_style(current_theme)
                         .inactive_weak;
                 }
@@ -553,8 +554,9 @@ impl ThemeSettings {
 
                 ui.color_edit_button_srgba(&mut style_override.open_bg);
                 if ui.small_button(RESET).clicked() {
-                    style_override.open_bg =
-                        ThemeSettings::default().get_style(current_theme).open_bg;
+                    style_override.open_bg = InterfaceSettings::default()
+                        .get_style(current_theme)
+                        .open_bg;
                 }
             });
 
@@ -565,8 +567,9 @@ impl ThemeSettings {
 
                 ui.color_edit_button_srgba(&mut style_override.open_weak);
                 if ui.small_button(RESET).clicked() {
-                    style_override.open_weak =
-                        ThemeSettings::default().get_style(current_theme).open_weak;
+                    style_override.open_weak = InterfaceSettings::default()
+                        .get_style(current_theme)
+                        .open_weak;
                 }
             });
 
@@ -577,8 +580,9 @@ impl ThemeSettings {
 
                 ui.color_edit_button_srgba(&mut style_override.hovered_bg);
                 if ui.small_button(RESET).clicked() {
-                    style_override.hovered_bg =
-                        ThemeSettings::default().get_style(current_theme).hovered_bg;
+                    style_override.hovered_bg = InterfaceSettings::default()
+                        .get_style(current_theme)
+                        .hovered_bg;
                 }
             });
 
@@ -589,7 +593,7 @@ impl ThemeSettings {
 
                 ui.color_edit_button_srgba(&mut style_override.hovered_weak);
                 if ui.small_button(RESET).clicked() {
-                    style_override.hovered_weak = ThemeSettings::default()
+                    style_override.hovered_weak = InterfaceSettings::default()
                         .get_style(current_theme)
                         .hovered_weak;
                 }
@@ -602,8 +606,9 @@ impl ThemeSettings {
 
                 ui.color_edit_button_srgba(&mut style_override.active_bg);
                 if ui.small_button(RESET).clicked() {
-                    style_override.active_bg =
-                        ThemeSettings::default().get_style(current_theme).active_bg;
+                    style_override.active_bg = InterfaceSettings::default()
+                        .get_style(current_theme)
+                        .active_bg;
                 }
             });
 
@@ -614,7 +619,7 @@ impl ThemeSettings {
 
                 ui.color_edit_button_srgba(&mut style_override.active_weak);
                 if ui.small_button(RESET).clicked() {
-                    style_override.active_weak = ThemeSettings::default()
+                    style_override.active_weak = InterfaceSettings::default()
                         .get_style(current_theme)
                         .active_weak;
                 }
