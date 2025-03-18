@@ -203,12 +203,14 @@ where
 /// If it is false, the simulation is not running.
 ///
 /// This value **cannot** be changed to control the state of the simulation.
+#[derive(
+    derive_more::Debug,
+    derive_more::Display,
+    derive_more::From,
+    derive_more::Into,
+    derive_more::Deref,
+    PartialEq,
+    Clone,
+    Copy,
+)]
 pub struct IsRunning(bool);
-
-impl std::ops::Deref for IsRunning {
-    type Target = bool;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
