@@ -42,7 +42,8 @@ lang! {
         HOVERED_BG, "Hovered Primary:";
         ACTIVE_BG, "Active: Primary:";
         HOVERED_WEAK, "Hovered Secondary:";
-        ACTIVE_WEAK, "Active Secondary:"
+        ACTIVE_WEAK, "Active Secondary:";
+        ZOOM, "Zoom:"
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Default)]
@@ -432,6 +433,30 @@ impl InterfaceSettings {
     /// Draws the interface settings sub-menu.
     pub(crate) fn draw(&mut self, ui: &mut egui::Ui) {
         egui::CollapsingHeader::new(INTERFACE_HEADER).show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.label(ZOOM);
+
+                let mut zoom_factor = ui.ctx().zoom_factor();
+                if ui.small_button("-").clicked() {
+                    zoom_factor -= 0.05;
+                }
+                ui.label(format!("{zoom_factor:.2}"));
+                if ui.small_button("+").clicked() {
+                    zoom_factor += 0.05;
+                }
+                // Ensure the zoom factor cannot go too low.
+                // Otherwise a panic will occur.
+                zoom_factor = zoom_factor.max(0.1);
+
+                if ui.small_button(RESET).clicked() {
+                    zoom_factor = 1.0;
+                }
+
+                ui.ctx().set_zoom_factor(zoom_factor);
+            });
+
+            ui.separator();
+
             ui.horizontal(|ui| {
                 ui.label(THEME_TOGGLE);
                 egui::global_theme_preference_buttons(ui);
