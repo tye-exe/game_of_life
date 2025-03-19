@@ -1,12 +1,10 @@
-use std::{
-    marker::PhantomData,
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+pub mod keybinds;
 
-use egui::{Color32, KeyboardShortcut};
+use std::path::{Path, PathBuf};
+
+use egui::{Color32, InputState};
 use egui_file_dialog::FileDialog;
-use egui_keybind::Shortcut;
+use keybinds::{Keybind, KeybindHolder};
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::{DEFAULT_BLUEPRINT_PATH, DEFAULT_SAVE_PATH, app::SETTINGS_PANEL, lang};
@@ -22,8 +20,13 @@ lang! {
         CELL_GRID_COLOUR, "Cell Grid Colour:";
         CELL_SELECTION_COLOUR, "Cell Selection Colour:";
         CELL_SIZE, "Cell Size:";
-        KEYBIND_SIMULATION_TOGGLE, "Toggle Simulation:";
         KEYBIND_SETTINGS_MENU_TOGGLE, "Toggle Settings Menu:";
+        KEYBIND_START_SIMULATION, "Start Simulation:";
+        KEYBIND_STOP_SIMULATION, "Stop Simulation:";
+        KEYBIND_LOAD_BOARD, "Load Board Menu:";
+        KEYBIND_LOAD_BLUEPRINT, "Load Blueprint Menu:";
+        KEYBIND_SAVE_BOARD, "Save Board Menu:";
+        KEYBIND_SAVE_BLUEPRINT, "Save Blueprint Menu:";
         FILE_HEADER, "Storage Locations";
         FILE_SAVE_PATH, "Save Path:";
         FILE_BLUEPRINT_PATH, "Blueprint Path:";
@@ -80,10 +83,8 @@ pub(crate) struct CellSettings {
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 #[serde(default)]
 pub(crate) struct KeybindSettings {
-    /// Keybind for toggling the settings menu.
-    pub(crate) settings_menu: Shortcut,
-    /// Keybind for toggling the simulation.
-    pub(crate) toggle_simulation: Shortcut,
+    /// The keybinds and the inputs required to trigger them.
+    keybinds: KeybindHolder,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -235,39 +236,58 @@ impl CellSettings {
 impl Default for KeybindSettings {
     fn default() -> Self {
         Self {
-            settings_menu: Shortcut::new(
-                Some(KeyboardShortcut::new(
-                    egui::Modifiers::CTRL | egui::Modifiers::SHIFT,
-                    egui::Key::D,
-                )),
-                None,
-            ),
-            toggle_simulation: Shortcut::new(
-                Some(KeyboardShortcut::new(egui::Modifiers::NONE, egui::Key::P)),
-                None,
-            ),
+            keybinds: Default::default(),
         }
     }
 }
 
 impl KeybindSettings {
+    /// Draws the keybind settings sub-menu.
     fn draw(&mut self, ui: &mut egui::Ui) {
         egui::CollapsingHeader::new(KEYBIND_HEADER).show(ui, |ui| {
-            ui.horizontal(|ui| {
-                ui.label(KEYBIND_SETTINGS_MENU_TOGGLE);
-                ui.add(egui_keybind::Keybind::new(
-                    &mut self.settings_menu,
-                    KEYBIND_SETTINGS_MENU_TOGGLE,
-                ));
-            });
+            // To change the draw order, change the enum order of "Keybind"
+            for keybind in enum_iterator::all::<Keybind>() {
+                self.keybinds.draw(
+                    ui,
+                    keybind,
+                    match keybind {
+                        Keybind::SettingsMenu => KEYBIND_SETTINGS_MENU_TOGGLE,
+                        Keybind::StartSimulation => KEYBIND_START_SIMULATION,
+                        Keybind::StopSimulation => KEYBIND_STOP_SIMULATION,
+                        Keybind::LoadBoard => KEYBIND_LOAD_BOARD,
+                        Keybind::LoadBlueprint => KEYBIND_LOAD_BLUEPRINT,
+                        Keybind::SaveBoard => KEYBIND_SAVE_BOARD,
+                        Keybind::SaveBlueprint => KEYBIND_SAVE_BLUEPRINT,
+                    },
+                );
+            }
+        });
+    }
 
-            ui.horizontal(|ui| {
-                ui.label(KEYBIND_SIMULATION_TOGGLE);
-                ui.add(egui_keybind::Keybind::new(
-                    &mut self.toggle_simulation,
-                    KEYBIND_SIMULATION_TOGGLE,
-                ));
-            });
+    /// Returns an iterator of [`Keybind`]s that have been triggered by the given [`InputState`].
+    ///
+    /// If a keybind has been pressed, then it consumes the input keys. This prevents any other matches.
+    /// Due to this keybinds are checked via the most complex keybinds (ones with the most keys) first.
+    pub(crate) fn pressed(
+        &mut self,
+        input_state: &mut InputState,
+    ) -> impl Iterator<Item = Keybind> {
+        self.keybinds.pressed(input_state)
+    }
+}
+
+impl KeybindHolder {
+    /// Adds a keybind setting entry to the given ui.
+    fn draw(&mut self, ui: &mut egui::Ui, keybind: Keybind, label: &'static str) {
+        ui.horizontal(|ui| {
+            ui.label(label);
+            ui.add(egui_keybind::Keybind::new(
+                self.get_shortcut_mut(keybind),
+                label,
+            ));
+            if ui.small_button(RESET).clicked() {
+                self.reset(keybind)
+            }
         });
     }
 }

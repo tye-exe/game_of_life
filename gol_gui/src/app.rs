@@ -8,7 +8,7 @@ use crate::{
         board_save::Save,
     },
     lang,
-    settings::Settings,
+    settings::{Settings, keybinds::Keybind},
     user_actions::{Action, History},
 };
 use edit::{EditState, Selection, draw_interaction, preview_interaction, select_interaction};
@@ -121,7 +121,7 @@ impl eframe::App for MyApp<'_> {
             return;
         }
 
-        self.check_keybinds(ctx);
+        to_send.append(&mut self.check_keybinds(ctx));
 
         self.save.update(ctx, &mut self.settings, &mut self.toasts);
         self.load.update(
@@ -604,23 +604,42 @@ impl<'a> MyApp<'a> {
 
                 ui.separator();
                 ui.checkbox(&mut self.debug.update_board, "Update board from simulator?");
+
+                ui.separator();
+                ui.horizontal(|ui| {
+                    ui.label("Focused:");
+                    ui.label(
+                        ctx.memory(|memory| memory.focused())
+                            .map_or("None".to_string(), |id| id.short_debug_format()),
+                    );
+                });
             });
     }
 
     /// Checks if any keybinds have been pressed & executes the corresponding action.
-    fn check_keybinds(&mut self, ctx: &egui::Context) {
-        let keybind = &mut self.settings.keybind;
+    fn check_keybinds(&mut self, ctx: &egui::Context) -> Vec<UiPacket> {
+        let mut to_send = Vec::new();
 
         // If the user is typing don't allow keybinds.
         if ctx.wants_keyboard_input() {
-            return;
+            return to_send;
         }
 
         ctx.input_mut(|input| {
-            if keybind.settings_menu.pressed(input) {
-                self.settings.open = !self.settings.open;
+            for keybind in self.settings.keybind.pressed(input) {
+                match keybind {
+                    Keybind::SettingsMenu => self.settings.open = !self.settings.open,
+                    Keybind::StartSimulation => to_send.push(UiPacket::Start),
+                    Keybind::StopSimulation => to_send.push(UiPacket::Stop),
+                    Keybind::LoadBoard => self.load.show = !self.load.show,
+                    Keybind::LoadBlueprint => self.blueprint_load.show = !self.blueprint_load.show,
+                    Keybind::SaveBoard => self.save.show = !self.save.show,
+                    Keybind::SaveBlueprint => self.blueprint_save.show = !self.blueprint_save.show,
+                }
             }
-        })
+        });
+
+        to_send
     }
 
     /// Draws the board of for Conways Game of Life onto the centeral panel.
