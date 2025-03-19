@@ -85,6 +85,15 @@ pub(crate) struct CellSettings {
 pub(crate) struct KeybindSettings {
     /// The keybinds and the inputs required to trigger them.
     keybinds: KeybindHolder,
+
+    /// The length of the longest label within this sub-menu.
+    /// This is used to align the keybind edit buttons.
+    #[serde(skip)]
+    longest_label: f32,
+    /// The length of the longest shortcut within this sub-menu.
+    /// This is used to align the keybind reset buttons.
+    #[serde(skip)]
+    longest_shortcut: f32,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -237,6 +246,8 @@ impl Default for KeybindSettings {
     fn default() -> Self {
         Self {
             keybinds: Default::default(),
+            longest_label: 0.0,
+            longest_shortcut: 0.0,
         }
     }
 }
@@ -247,19 +258,38 @@ impl KeybindSettings {
         egui::CollapsingHeader::new(KEYBIND_HEADER).show(ui, |ui| {
             // To change the draw order, change the enum order of "Keybind"
             for keybind in enum_iterator::all::<Keybind>() {
-                self.keybinds.draw(
-                    ui,
-                    keybind,
-                    match keybind {
-                        Keybind::SettingsMenu => KEYBIND_SETTINGS_MENU_TOGGLE,
-                        Keybind::StartSimulation => KEYBIND_START_SIMULATION,
-                        Keybind::StopSimulation => KEYBIND_STOP_SIMULATION,
-                        Keybind::LoadBoard => KEYBIND_LOAD_BOARD,
-                        Keybind::LoadBlueprint => KEYBIND_LOAD_BLUEPRINT,
-                        Keybind::SaveBoard => KEYBIND_SAVE_BOARD,
-                        Keybind::SaveBlueprint => KEYBIND_SAVE_BLUEPRINT,
-                    },
-                );
+                let label = match keybind {
+                    Keybind::SettingsMenu => KEYBIND_SETTINGS_MENU_TOGGLE,
+                    Keybind::StartSimulation => KEYBIND_START_SIMULATION,
+                    Keybind::StopSimulation => KEYBIND_STOP_SIMULATION,
+                    Keybind::LoadBoard => KEYBIND_LOAD_BOARD,
+                    Keybind::LoadBlueprint => KEYBIND_LOAD_BLUEPRINT,
+                    Keybind::SaveBoard => KEYBIND_SAVE_BOARD,
+                    Keybind::SaveBlueprint => KEYBIND_SAVE_BLUEPRINT,
+                };
+
+                ui.horizontal(|ui| {
+                    let label_width = ui.label(label).rect.max.x;
+                    self.longest_label = self.longest_label.max(label_width);
+                    // Adds padding so that the end of each label lines up
+                    ui.allocate_space(egui::vec2(self.longest_label - label_width, 1.0));
+
+                    let shortcut_width = ui
+                        .add(egui_keybind::Keybind::new(
+                            self.keybinds.get_shortcut_mut(keybind),
+                            label,
+                        ))
+                        .rect
+                        .max
+                        .x;
+                    self.longest_shortcut = self.longest_shortcut.max(shortcut_width);
+                    // Adds padding so that the end of each shortcut lines up
+                    ui.allocate_space(egui::vec2(self.longest_shortcut - shortcut_width, 1.0));
+
+                    if ui.small_button(RESET).clicked() {
+                        self.keybinds.reset(keybind)
+                    }
+                });
             }
         });
     }
@@ -273,22 +303,6 @@ impl KeybindSettings {
         input_state: &mut InputState,
     ) -> impl Iterator<Item = Keybind> {
         self.keybinds.pressed(input_state)
-    }
-}
-
-impl KeybindHolder {
-    /// Adds a keybind setting entry to the given ui.
-    fn draw(&mut self, ui: &mut egui::Ui, keybind: Keybind, label: &'static str) {
-        ui.horizontal(|ui| {
-            ui.label(label);
-            ui.add(egui_keybind::Keybind::new(
-                self.get_shortcut_mut(keybind),
-                label,
-            ));
-            if ui.small_button(RESET).clicked() {
-                self.reset(keybind)
-            }
-        });
     }
 }
 
