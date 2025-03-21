@@ -169,6 +169,18 @@ impl Area {
         self.max.x = self.max.x.max(self.min.x);
         self.max.y = self.max.y.max(self.min.y);
     }
+
+    /// Returns true if the given position is a location inside of this area.
+    ///
+    /// All positions produced via [`Self::iterate_over`] will return true for this method.
+    pub fn contains(&self, position: impl Into<GlobalPosition>) -> bool {
+        let position: GlobalPosition = position.into();
+
+        position.get_x() >= self.get_min().get_x()
+            && position.get_x() <= self.get_max().get_x()
+            && position.get_y() >= self.get_min().get_y()
+            && position.get_y() <= self.get_max().get_y()
+    }
 }
 
 #[cfg(test)]
@@ -285,5 +297,70 @@ pub(crate) mod area_tests {
             Area::new((0, 0), (0, 0)),
             "The maximum value cannot be smaller than the minimum value."
         );
+    }
+
+    #[test]
+    /// A position in the middle area of an area will be contained by it.
+    fn contains_in_middle() {
+        let area = Area::new((0, 0), (10, 10));
+        assert!(
+            area.contains((5, 5)),
+            "This position is within the area bounds"
+        );
+    }
+
+    #[test]
+    /// The positions on the edges of an area will be contained by it.
+    fn contains_borders() {
+        let area = Area::new((0, 0), (10, 10));
+        let x_max = (10, 5);
+        let x_min = (0, 5);
+        let y_max = (5, 10);
+        let y_min = (5, 0);
+
+        assert!(area.contains(x_max), "{x_max:?} is within the area bounds");
+        assert!(area.contains(x_min), "{x_max:?} is within the area bounds");
+        assert!(area.contains(y_max), "{x_max:?} is within the area bounds");
+        assert!(area.contains(y_min), "{x_max:?} is within the area bounds");
+    }
+
+    #[test]
+    /// The positions outside the area will not be contained by it.
+    fn contains_out_of_area() {
+        let area = Area::new((0, 0), (10, 10));
+        let x_max_over = (11, 5);
+        let x_min_over = (-1, 5);
+        let y_max_over = (5, 11);
+        let y_min_over = (5, -1);
+
+        assert!(
+            !area.contains(x_max_over),
+            "{x_max_over:?} is not within the area bounds"
+        );
+        assert!(
+            !area.contains(x_min_over),
+            "{x_max_over:?} is not within the area bounds"
+        );
+        assert!(
+            !area.contains(y_max_over),
+            "{x_max_over:?} is not within the area bounds"
+        );
+        assert!(
+            !area.contains(y_min_over),
+            "{x_max_over:?} is not within the area bounds"
+        );
+    }
+
+    #[test]
+    /// The entire area iterated over must be contained by the area.
+    fn contains_all_from_iter() {
+        let area = Area::new((-3, -3), (6, 6));
+
+        for position in area.iterate_over() {
+            assert!(
+                area.contains(position),
+                "Area must contain '{position:?}', as it is iterated over."
+            );
+        }
     }
 }
