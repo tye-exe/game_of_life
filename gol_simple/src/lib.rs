@@ -229,7 +229,7 @@ impl Simulator for Board {
 mod tests {
     use bitvec::vec::BitVec;
 
-    use gol_lib::persistence::SimulationSave;
+    use gol_lib::persistence::{SimulationBlueprint, SimulationSave};
 
     use super::*;
 
@@ -1205,5 +1205,243 @@ mod tests {
         board.set((4, 6).into(), Cell::Alive);
 
         assert_eq!(board.get_board_area(), Area::new((0, 0), (4, 6)));
+    }
+
+    #[test]
+    /// An empty blueprint will save correctly.
+    fn save_empty_blueprint() {
+        let board = Board::new(Default::default());
+        let area = Area::new((-2, -2), (3, 3));
+
+        let mut blueprint_data = BitVec::new();
+        for _ in area.iterate_over() {
+            blueprint_data.push(Cell::Dead.into());
+        }
+
+        let expected_blueprint =
+            SimulationBlueprint::new(area.x_difference(), area.y_difference(), blueprint_data);
+
+        let save_blueprint = board.save_blueprint(area);
+
+        assert_eq!(expected_blueprint, save_blueprint);
+    }
+
+    #[test]
+    /// An full blueprint will save correctly.
+    fn save_full_blueprint() {
+        let mut board = Board::new(Default::default());
+        let area = Area::new((-2, -2), (3, 3));
+
+        // Fill the expected blueprint and board with the dummy data.
+        let mut blueprint_data = BitVec::new();
+        for position in area.iterate_over() {
+            board.set(position, Cell::Alive);
+
+            blueprint_data.push(Cell::Alive.into());
+        }
+
+        let expected_blueprint =
+            SimulationBlueprint::new(area.x_difference(), area.y_difference(), blueprint_data);
+
+        let save_blueprint = board.save_blueprint(area);
+
+        assert_eq!(expected_blueprint, save_blueprint);
+    }
+
+    #[test]
+    /// A blueprint with mixed data will save correctly.
+    fn save_mixed_blueprint() {
+        let mut board = Board::new(Default::default());
+        let area = Area::new((-2, -2), (3, 3));
+
+        // Fills the expected blueprint and board with the dummy data.
+        let mut blueprint_data = BitVec::new();
+        for (position, cell) in area.iterate_over().zip(generate_cell_iterator()) {
+            board.set(position, cell);
+
+            blueprint_data.push(cell.into());
+        }
+
+        let expected_blueprint =
+            SimulationBlueprint::new(area.x_difference(), area.y_difference(), blueprint_data);
+
+        let save_blueprint = board.save_blueprint(area);
+
+        assert_eq!(expected_blueprint, save_blueprint);
+    }
+
+    #[test]
+    /// An empty blueprint must set the cells that it covers to dead.
+    fn load_empty_blueprint() {
+        let mut board = Board::new(Default::default());
+
+        let board_area = Area::new((-2, -2), (5, 5));
+        for position in board_area.iterate_over() {
+            board.set(position, Cell::Alive);
+        }
+
+        // Construct the blueprint to load.
+        let blueprint_area = Area::new((-1, 0), (2, 3));
+        let mut blueprint_data = BitVec::new();
+
+        for _ in blueprint_area.iterate_over() {
+            blueprint_data.push(Cell::Dead.into());
+        }
+
+        let blueprint = SimulationBlueprint::new(
+            blueprint_area.x_difference(),
+            blueprint_area.y_difference(),
+            blueprint_data,
+        );
+
+        // Blueprint has not applied yet
+        for position in blueprint_area.iterate_over() {
+            assert_eq!(
+                board.get(position),
+                Cell::Alive,
+                "The cell at {position:?} must be alive as no blueprint has been loaded."
+            );
+        }
+
+        board.load_blueprint(blueprint_area.get_min(), blueprint);
+
+        // Test blueprint has applied.
+        for position in blueprint_area.iterate_over() {
+            assert_eq!(
+                board.get(position),
+                Cell::Dead,
+                "The cell at {position:?} must be dead as the blueprint has been loaded."
+            );
+        }
+    }
+
+    #[test]
+    /// An alive blueprint must set the cells that it covers to alive.
+    fn load_full_blueprint() {
+        let mut board = Board::new(Default::default());
+
+        // Construct the blueprint to load.
+        let blueprint_area = Area::new((-1, 0), (2, 3));
+        let mut blueprint_data = BitVec::new();
+
+        for _ in blueprint_area.iterate_over() {
+            blueprint_data.push(Cell::Alive.into());
+        }
+
+        let blueprint = SimulationBlueprint::new(
+            blueprint_area.x_difference(),
+            blueprint_area.y_difference(),
+            blueprint_data,
+        );
+
+        // Test dead
+        for position in blueprint_area.iterate_over() {
+            assert_eq!(
+                board.get(position),
+                Cell::Dead,
+                "The cell at {position:?} must be dead as the blueprint has not been loaded."
+            );
+        }
+
+        board.load_blueprint(blueprint_area.get_min(), blueprint);
+
+        // Test alive
+        for position in blueprint_area.iterate_over() {
+            assert_eq!(
+                board.get(position),
+                Cell::Alive,
+                "The cell at {position:?} must be alive as the blueprint has been loaded."
+            );
+        }
+    }
+
+    #[test]
+    /// A blueprint of alive and dead cells must correct set the cells.
+    fn load_mixed_blueprint() {
+        let mut board = Board::new(Default::default());
+
+        // Construct the blueprint to load.
+        let blueprint_area = Area::new((-1, 0), (2, 3));
+        let blueprint_data: BitVec = generate_cell_iterator()
+            .take(blueprint_area.iterate_over().count())
+            .map(|cell| -> bool { cell.into() })
+            // .into()
+            .collect();
+
+        let blueprint = SimulationBlueprint::new(
+            blueprint_area.x_difference(),
+            blueprint_area.y_difference(),
+            blueprint_data.clone(),
+        );
+
+        // Test dead
+        for position in blueprint_area.iterate_over() {
+            assert_eq!(
+                board.get(position),
+                Cell::Dead,
+                "The cell at {position:?} must be dead as the blueprint has not been loaded."
+            );
+        }
+
+        board.load_blueprint(blueprint_area.get_min(), blueprint);
+
+        // Test after load
+        for (position, cell) in blueprint_area.iterate_over().zip(blueprint_data) {
+            assert_eq!(
+                board.get(position),
+                cell.into(),
+                "The cell at {position:?} must be alive as the blueprint has been loaded."
+            );
+        }
+    }
+
+    #[test]
+    /// A blueprint must not distrurb the surrounding cells.
+    fn loaded_blueprint_surroundings() {
+        let mut board = Board::new(Default::default());
+
+        // Set area around and in blueprint to be alive.
+        // This allows us to see the impact of the empty blueprint.
+        let board_area = Area::new((-2, -2), (5, 5));
+        for position in board_area.iterate_over() {
+            board.set(position, Cell::Alive);
+        }
+
+        // Construct the blueprint to load.
+        let blueprint_area = Area::new((-1, 0), (2, 3));
+        let mut blueprint_data = BitVec::new();
+
+        for _ in blueprint_area.iterate_over() {
+            blueprint_data.push(Cell::Dead.into());
+        }
+
+        let blueprint = SimulationBlueprint::new(
+            blueprint_area.x_difference(),
+            blueprint_area.y_difference(),
+            blueprint_data,
+        );
+
+        // Expected board
+        let save_data: BitVec = board_area
+            .iterate_over()
+            .map(|position| -> bool {
+                if blueprint_area.contains(position) {
+                    Cell::Dead
+                } else {
+                    Cell::Alive
+                }
+                .into()
+            })
+            .collect();
+        let expected_save = SimulationSave::new(0, board_area, save_data);
+
+        // True board data
+        board.load_blueprint(blueprint_area.get_min(), blueprint);
+        let save_board = board.save_board();
+
+        assert_eq!(
+            save_board, expected_save,
+            "The blueprint must only apply to the correct area."
+        );
     }
 }
