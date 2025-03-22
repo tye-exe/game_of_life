@@ -102,13 +102,8 @@ pub struct Blueprint {
 /// For generating the filenames using the generic save data for [`SaveFormat`] from [`SaveBuilder`].
 pub trait GenerateName {
     /// Generates the filename (including extension) of the file from the data stored in the file.
-    fn filename(
-        &self,
-        save_name: &str,
-        save_description: &str,
-        save_tags: &[Box<str>],
-        save_time: &Duration,
-    ) -> String;
+    fn filename(&self, name: &str, description: &str, tags: &[Box<str>], time: &Duration)
+    -> String;
 }
 
 impl GenerateName for Save {
@@ -119,40 +114,32 @@ impl GenerateName for Save {
         save_tags: &[Box<str>],
         save_time: &Duration,
     ) -> String {
-        let mut hasher = DefaultHasher::new();
-
-        save_name.hash(&mut hasher);
-        save_description.hash(&mut hasher);
-        self.simulation_save.board_area.hash(&mut hasher);
-        save_time.hash(&mut hasher);
-        save_tags.hash(&mut hasher);
-
-        let mut filename = hasher.finish().to_string();
-        filename.push_str(".save");
-        filename
+        Save::generate_filename(
+            self.simulation_save.board_area,
+            save_name,
+            save_description,
+            save_tags,
+            save_time,
+        )
     }
 }
 
 impl GenerateName for Blueprint {
     fn filename(
         &self,
-        save_name: &str,
-        save_description: &str,
-        save_tags: &[Box<str>],
-        save_time: &Duration,
+        blueprint_name: &str,
+        blueprint_description: &str,
+        blueprint_tags: &[Box<str>],
+        blueprint_time: &Duration,
     ) -> String {
-        let mut hasher = DefaultHasher::new();
-
-        save_name.hash(&mut hasher);
-        save_description.hash(&mut hasher);
-        self.blueprint.x_size.hash(&mut hasher);
-        self.blueprint.y_size.hash(&mut hasher);
-        save_time.hash(&mut hasher);
-        save_tags.hash(&mut hasher);
-
-        let mut filename = hasher.finish().to_string();
-        filename.push_str(".save");
-        filename
+        Blueprint::generate_filename(
+            self.blueprint.x_size,
+            self.blueprint.y_size,
+            blueprint_name,
+            blueprint_description,
+            blueprint_tags,
+            blueprint_time,
+        )
     }
 }
 
@@ -165,14 +152,17 @@ impl Save {
         save_tags: &[Box<str>],
         save_time: &Duration,
     ) -> String {
-        Self {
-            view_position: None,
-            simulation_save: SimulationSave {
-                board_area,
-                ..Default::default()
-            },
-        }
-        .filename(save_name, save_description, save_tags, save_time)
+        let mut hasher = DefaultHasher::new();
+
+        save_name.hash(&mut hasher);
+        save_description.hash(&mut hasher);
+        board_area.hash(&mut hasher);
+        save_time.hash(&mut hasher);
+        save_tags.hash(&mut hasher);
+
+        let mut filename = hasher.finish().to_string();
+        filename.push_str(".save");
+        filename
     }
 }
 
@@ -186,18 +176,17 @@ impl Blueprint {
         blueprint_tags: &[Box<str>],
         blueprint_time: &Duration,
     ) -> String {
-        Self {
-            blueprint: SimulationBlueprint {
-                x_size,
-                y_size,
-                blueprint_data: Default::default(),
-            },
-        }
-        .filename(
-            blueprint_name,
-            blueprint_description,
-            blueprint_tags,
-            blueprint_time,
-        )
+        let mut hasher = DefaultHasher::new();
+
+        blueprint_name.hash(&mut hasher);
+        blueprint_description.hash(&mut hasher);
+        x_size.hash(&mut hasher);
+        y_size.hash(&mut hasher);
+        blueprint_time.hash(&mut hasher);
+        blueprint_tags.hash(&mut hasher);
+
+        let mut filename = hasher.finish().to_string();
+        filename.push_str(".save");
+        filename
     }
 }
