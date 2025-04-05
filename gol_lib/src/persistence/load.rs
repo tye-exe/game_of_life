@@ -26,14 +26,14 @@ pub enum BlueprintParseError {
 }
 
 /// Attempts to parse the board data from a save at the given file path.
-pub fn load_board_data(save_location: &Path) -> Result<SimulationSave, SaveParseError> {
+pub fn load_board_data(save_location: impl AsRef<Path>) -> Result<SimulationSave, SaveParseError> {
     let file = std::fs::File::open(save_location)?;
     Ok(serde_json::from_reader(file)?)
 }
 
 /// Attempts to parse a blueprint from the file at the given path.
 pub fn load_blueprint(
-    blueprint_location: &Path,
+    blueprint_location: impl AsRef<Path>,
 ) -> Result<SimulationBlueprint, BlueprintParseError> {
     let file = std::fs::File::open(blueprint_location)?;
     Ok(serde_json::from_reader(file)?)
