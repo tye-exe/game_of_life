@@ -352,6 +352,8 @@ mod tests {
             board.set(position, Cell::Alive);
         }
 
+        board.set_generation(100);
+
         board.reset();
 
         // Test reset
@@ -362,6 +364,12 @@ mod tests {
                 "Cell at {position:?} is alive. All cells must be dead after board reset"
             );
         }
+
+        assert_eq!(
+            board.get_generation(),
+            0,
+            "The board generation must be set to zero after a reset."
+        );
     }
 
     #[test]
@@ -650,7 +658,7 @@ mod tests {
     }
 
     #[test]
-    /// An alive cell with four neighbours will die
+    /// An dead cell with four neighbours will die
     fn dead_4_neighbours() {
         let display: SharedDisplay = Default::default();
         let mut board = Board::new(display.clone());
