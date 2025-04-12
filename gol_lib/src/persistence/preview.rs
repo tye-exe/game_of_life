@@ -356,7 +356,7 @@ mod tests {
     /// The actual filename and the generated filename are correct.
     #[test]
     fn blueprint_filename() {
-        const EXPECTED_FILENAME: &str = "14484944024045809280.save";
+        const EXPECTED_FILENAME: &str = "18105438302258333504.save";
 
         let temp_dir = tempfile::tempdir().expect("Able to create temp dir");
         let save_name = "name";

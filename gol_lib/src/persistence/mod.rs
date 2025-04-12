@@ -4,10 +4,11 @@ pub mod preview;
 pub mod save;
 
 use std::{
-    hash::{DefaultHasher, Hash, Hasher},
+    hash::{Hash, Hasher},
     time::Duration,
 };
 
+use highway::HighwayHasher;
 pub use load::{
     ParseError, load_blueprint, load_blueprint_preview, load_board_data, load_preview,
     load_save_preview,
@@ -152,7 +153,7 @@ impl Save {
         save_tags: &[Box<str>],
         save_time: &Duration,
     ) -> String {
-        let mut hasher = DefaultHasher::new();
+        let mut hasher = HighwayHasher::default();
 
         save_name.hash(&mut hasher);
         save_description.hash(&mut hasher);
@@ -176,7 +177,7 @@ impl Blueprint {
         blueprint_tags: &[Box<str>],
         blueprint_time: &Duration,
     ) -> String {
-        let mut hasher = DefaultHasher::new();
+        let mut hasher = HighwayHasher::default();
 
         blueprint_name.hash(&mut hasher);
         blueprint_description.hash(&mut hasher);

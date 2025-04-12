@@ -206,14 +206,20 @@ mod tests {
         // Use unix epoch for consistency
         let save_time = SystemTime::UNIX_EPOCH;
 
-        let generate_save_name = SaveBuilder::new_save(Default::default())
+        let path = SaveBuilder::new_save(Default::default())
             .name(save_name)
             .desciprtion(save_description)
             .time(save_time)
             .tags(save_tags)
             .generate_filename(temp_dir.path());
+        // Temp binding for compiler
+        let name = path
+            .file_name()
+            .expect("Can retrieve filename")
+            .to_str()
+            .expect("Filename can be converted to a string.");
 
-        assert!(generate_save_name.ends_with("9011655623179715335.save"));
+        assert_eq!(name, "10568314007887490067.save");
     }
 
     #[test]
